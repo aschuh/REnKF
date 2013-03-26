@@ -1,0 +1,14 @@
+#!/usr/bin/csh
+#PBS -S /usr/bin/csh
+#PBS -N ENS2_0
+#PBS -l select=34:ncpus=12:mem=24GB,walltime=12:00:00
+#PBS -j oe
+#PBS -o /discover/nobackup/aschuh/reg_folders/my_job_dir38/output.PBS
+#PBS -W group_list=s1111
+#PBS -W umask=022
+#PBS -V
+module load comp/intel-13.1.0.146
+ulimit -s unlimited
+cd /discover/nobackup/aschuh/run/ENSCODE
+~/local/bin/R CMD BATCH --no-save --no-restore 'args startcycle=25 endcycle=37' /discover/nobackup/aschuh/run/ENSCODE/runens.noaa.R 
+exit 0
