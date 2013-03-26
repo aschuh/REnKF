@@ -25,9 +25,25 @@
  ensembles = 200
  cycle_length = 14
  cycles = 1:26
+ startcycle = cycles[1]
+ endcycle = cycles[length(cycles)]
  inflation.factor = 1.15
  startdate = as.POSIXlt(strptime('2005-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
  startdate$isdst = 0
+
+ args = commandArgs(TRUE)
+
+ print(args)
+
+ if(length(args)==0){
+    print("No arguments supplied.")
+ }else{
+    for(i in 1:length(args)){
+         eval(parse(text=args[[i]]))
+    }
+   print(paste("startcycle now:",startcycle))
+   print(paste("endcycle now:",endcycle)) 
+ }
 
  #-- User directories
  run_dir = "/discover/nobackup/aschuh/run/"
@@ -43,14 +59,14 @@
  source("output2ncdf.R")
  source("utils.R")
  source("create_noaa_data.R")
- source("jobscript.NASA.pbs.R")
+ #source("jobscript.NASA.pbs.R")
 
  #-- Checking outdir against a few lines in input.geos which MUST match
  geos_inputfile_check(input_geos_file,outdir,prop_model)
 
  if(que_soft=="sge"){sge.options(sge.use.cluster=TRUE,sge.save.global=TRUE,sge.remove.ﬁles=FALSE)}
 
- orig_betas_file = "/user1/aschuh/temp/betas.071212.nc"
+ orig_betas_file = paste(run_dir,"ENSCODE/betas.071212.nc",sep="")
 
  #-- for bamboo
  #system(paste("/usr/local/nco4-gcc/bin/ncks -F -d ensemble,0,",ensembles-1,
@@ -67,7 +83,7 @@
  #-- *Need to check that output directories are there
  #--  We should check for existence of output files now*
 
- for(i in 9:length(cycles))
+ for(i in startcycle:endcycle)
  {
      #-- Adjust ensemble start date to cycle start date
 
@@ -95,23 +111,51 @@
 
        vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
        ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
+       
+       pr_ind = vv == "000"
+       ifiles[pr_ind] = orig_betas_file
+
        for(k in 1:length(ifiles))
         {
          if(k==1)
           {
-           ifiles.fil = nc_open(ifiles[k])
-           BETAGPP = ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
-           BETARESP = ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
-           BETAOCEAN = ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
-           nc_close(ifiles.fil)
+           if(pr_ind[k]){
+              #-- currently orig_betas_file has 1000 ensembles in it
+              samp = sample(1:1000,ensembles)
+              for(j in 1:ensembles){
+                     ifiles.fil = nc_open(ifiles[k],readunlim=FALSE)
+                     if(j==1){
+                       test = ncvar_get(ifiles.fil,"BETAGPP",start=c(1,1,1,1),count=c(-1,-1,1,1))
+                       BETAGPP = array(dim=c(dim(test)[1],dim(test)[2],ensembles))
+                       BETARESP = array(dim=c(dim(test)[1],dim(test)[2],ensembles))
+                       BETAOCEAN = array(dim=c(dim(test)[1],dim(test)[2],ensembles))
+                             }
+                       BETAGPP[,,j] = ncvar_get(ifiles.fil,"BETAGPP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
+                       BETARESP[,,j] = ncvar_get(ifiles.fil,"BETARESP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
+                       BETAOCEAN[,,j] = ncvar_get(ifiles.fil,"BETAOCEAN",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
+                       }
+            }else{     
+                 ifiles.fil = nc_open(ifiles[k])
+                 BETAGPP = ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
+                 BETARESP = ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
+                 BETAOCEAN = ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
+                 nc_close(ifiles.fil)
+            }
           }else
           {
-           ifiles.fil = nc_open(ifiles[k])
-           BETAGPP = BETAGPP + ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
-           BETARESP = BETARESP + ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
-           BETAOCEAN = BETAOCEAN + ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
-           nc_close(ifiles.fil)
+           if(pr_ind[k]){
+               #-- For now, just use first 'prior' pull for both prior files, usually just first/second cycles
+               BETAGPP   = BETAGPP   *2
+               BETARESP  = BETARESP  *2
+               BETAOCEAN = BETAOCEAN *2
+           }else{
+             ifiles.fil = nc_open(ifiles[k])
+             BETAGPP = BETAGPP + ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
+             BETARESP = BETARESP + ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
+             BETAOCEAN = BETAOCEAN + ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
+             nc_close(ifiles.fil)
           }
+         }
         }
 
        write_new_priors_nc(BETAOCEAN,BETAGPP,BETARESP,prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
