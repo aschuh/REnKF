@@ -13,7 +13,9 @@ origdim.y =  91
 grid.x = 2.5
 grid.y = 2
 ens.size = 1000
-fileout = "/user1/aschuh/temp/betas.112712.nc"
+infl.factor.mean = 0.15
+infl.factor.var = 0.03^2
+fileout = "/home/aschuh/betas.040913.nc"
 ###############################
 
 #-- Libraries needed
@@ -54,7 +56,7 @@ rm(VV.ocean)
 
 #--  Write out ensemble reals to netcdf
 
-ens = list(ensembs.land.gpp=ensembs.land.gpp,ensembs.land.resp=ensembs.land.resp,ensembs.ocean=ensembs.ocean)                                          
+ens = list(ensembs.land.gpp=ensembs.land.gpp,ensembs.land.resp=ensembs.land.resp,ensembs.ocean=ensembs.ocean)                                        
 
 #--  This sets the first ens member to the "control", just 0 in this case because
 #--  GEOSCHEM is expecting the add '1' to this, ie. newGPP = GPP (1 + beta)
@@ -88,6 +90,24 @@ varlist[[2]]  <- ncvar_def(name="BETARESP",units="",
 varlist[[3]]  <- ncvar_def(name="BETAOCEAN",units="",
                                  dim=list(x,y,nens,t), missval=NA,prec="float")
                                  
+varlist[[4]]  <- ncvar_def(name="BETAGPP_INFL_MEAN",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
+varlist[[5]]  <- ncvar_def(name="BETAGPP_INFL_VAR",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
+varlist[[6]]  <- ncvar_def(name="BETARESP_INFL_MEAN",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
+varlist[[7]]  <- ncvar_def(name="BETARESP_INFL_VAR",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
+varlist[[8]]  <- ncvar_def(name="BETAOCEAN_INFL_MEAN",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
+varlist[[9]]  <- ncvar_def(name="BETAOCEAN_INFL_VAR",units="",
+                                 dim=list(x,y,t), missval=NA,prec="float")
+
 #fileout = "/user1/aschuh/temp/betas.112712.nc"
 
 ncnew <- nc_create(fileout,varlist)
@@ -95,6 +115,12 @@ ncnew <- nc_create(fileout,varlist)
 ncvar_put(ncnew, varlist[[1]],t(ens$ensembs.land.gpp))
 ncvar_put(ncnew, varlist[[2]],t(ens$ensembs.land.resp))
 ncvar_put(ncnew, varlist[[3]],t(ens$ensembs.ocean))
+ncvar_put(ncnew, varlist[[4]],rep(infl.factor.mean,length(x$vals)*length(y$vals)))
+ncvar_put(ncnew, varlist[[5]],rep(infl.factor.var,length(x$vals)*length(y$vals)))
+ncvar_put(ncnew, varlist[[6]],rep(infl.factor.mean,length(x$vals)*length(y$vals)))
+ncvar_put(ncnew, varlist[[7]],rep(infl.factor.var,length(x$vals)*length(y$vals)))
+ncvar_put(ncnew, varlist[[8]],rep(infl.factor.mean,length(x$vals)*length(y$vals)))
+ncvar_put(ncnew, varlist[[9]],rep(infl.factor.var,length(x$vals)*length(y$vals)))
 
 nc_close(ncnew) 
 
