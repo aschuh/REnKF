@@ -1,5 +1,7 @@
  #--- ENSEMBLE SCRIPT FOR GEOS-CHEM
 
+ set.seed(27)
+
  #--Queing software, nasa, torque or sge
  que_soft = "nasa"
 
@@ -20,14 +22,15 @@
  #}
 
  require(ncdf4)
+ require(plyr)
 
  #-- Use options
  ensembles = 200
  cycle_length = 14
- cycles = 1:26
+ cycles = 1:(26*6)
  startcycle = cycles[1]
  endcycle = cycles[length(cycles)]
- inflation.factor = 1.15
+ inflation.factor = 1.1
  startdate = as.POSIXlt(strptime('2005-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
  startdate$isdst = 0
 
@@ -49,6 +52,8 @@
  run_dir = "/discover/nobackup/aschuh/run/"
  outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/longrun"
  input_geos_file = paste(run_dir,"/input.geos",sep="")
+ orig_betas_file = "/home/aschuh/betas.040913.nc"
+
 
  #-- Set working directory and sun grid eng. options
  setwd(paste(run_dir,"ENSCODE",sep=""))
@@ -66,7 +71,7 @@
 
  if(que_soft=="sge"){sge.options(sge.use.cluster=TRUE,sge.save.global=TRUE,sge.remove.ﬁles=FALSE)}
 
- orig_betas_file = paste(run_dir,"ENSCODE/betas.071212.nc",sep="")
+ #orig_betas_file = paste(run_dir,"ENSCODE/betas.071212.nc",sep="")
 
  #-- for bamboo
  #system(paste("/usr/local/nco4-gcc/bin/ncks -F -d ensemble,0,",ensembles-1,
@@ -121,7 +126,7 @@
           {
            if(pr_ind[k]){
               #-- currently orig_betas_file has 1000 ensembles in it
-              samp = sample(1:1000,ensembles)
+              samp = c(1,sample(1:1000,ensembles-1))
               for(j in 1:ensembles){
                      ifiles.fil = nc_open(ifiles[k],readunlim=FALSE)
                      if(j==1){
@@ -130,16 +135,44 @@
                        BETARESP = array(dim=c(dim(test)[1],dim(test)[2],ensembles))
                        BETAOCEAN = array(dim=c(dim(test)[1],dim(test)[2],ensembles))
                              }
-                       BETAGPP[,,j] = ncvar_get(ifiles.fil,"BETAGPP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
-                       BETARESP[,,j] = ncvar_get(ifiles.fil,"BETARESP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
-                       BETAOCEAN[,,j] = ncvar_get(ifiles.fil,"BETAOCEAN",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))/length(ifiles)
+                       BETAGPP[,,j] = ncvar_get(ifiles.fil,"BETAGPP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))#/length(ifiles)
+                       BETARESP[,,j] = ncvar_get(ifiles.fil,"BETARESP",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))#/length(ifiles)
+                       BETAOCEAN[,,j] = ncvar_get(ifiles.fil,"BETAOCEAN",start=c(1,1,samp[j],1),count=c(-1,-1,1,1))#/length(ifiles)
                        }
+                 #-- Important, we need to convert deviations to variations before we weight, and add
+                 BETAGPP[,,2:ensembles]   =  aperm(aaply(BETAGPP[,,2:ensembles],c(3),.fun=function(x){x-BETAGPP[,,1]}),c(2,3,1)) 
+                 BETARESP[,,2:ensembles]  =  aperm(aaply(BETARESP[,,2:ensembles],c(3),.fun=function(x){x-BETARESP[,,1]}),c(2,3,1))
+                 BETAOCEAN[,,2:ensembles] =  aperm(aaply(BETAOCEAN[,,2:ensembles],c(3),.fun=function(x){x-BETAOCEAN[,,1]}),c(2,3,1)) 
+
+                 BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] = ( -(BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] =  ( (BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+                 BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] = ( -(BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] =  ( (BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+                 BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] = ( -(BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] =  ( (BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
             }else{     
                  ifiles.fil = nc_open(ifiles[k])
-                 BETAGPP = ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
-                 BETARESP = ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
-                 BETAOCEAN = ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
+                 BETAGPP = ncvar_get(ifiles.fil,"BETAGPP")
+                 BETARESP = ncvar_get(ifiles.fil,"BETARESP")
+                 BETAOCEAN = ncvar_get(ifiles.fil,"BETAOCEAN")
                  nc_close(ifiles.fil)
+
+                 #-- Important, we need to convert deviations to variations before we weight, and add
+                 BETAGPP[,,2:ensembles] = aperm(aaply(BETAGPP[,,2:ensembles],c(3),.fun=function(x){x-BETAGPP[,,1]}),c(2,3,1)) 
+                 BETARESP[,,2:ensembles] = aperm(aaply(BETARESP[,,2:ensembles],c(3),.fun=function(x){x-BETARESP[,,1]}),c(2,3,1)) 
+                 BETAOCEAN[,,2:ensembles] = aperm(aaply(BETAOCEAN[,,2:ensembles],c(3),.fun=function(x){x-BETAOCEAN[,,1]}),c(2,3,1))
+
+                 BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] = ( -(BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] =  ( (BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+                 BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] = ( -(BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] =  ( (BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+                 BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] = ( -(BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+                 BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] =  ( (BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
             }
           }else
           {
@@ -150,13 +183,51 @@
                BETAOCEAN = BETAOCEAN *2
            }else{
              ifiles.fil = nc_open(ifiles[k])
-             BETAGPP = BETAGPP + ncvar_get(ifiles.fil,"BETAGPP")/length(ifiles)
-             BETARESP = BETARESP + ncvar_get(ifiles.fil,"BETARESP")/length(ifiles)
-             BETAOCEAN = BETAOCEAN + ncvar_get(ifiles.fil,"BETAOCEAN")/length(ifiles)
+             BETAGPP_NEW = ncvar_get(ifiles.fil,"BETAGPP")#/length(ifiles)
+             BETARESP_NEW = ncvar_get(ifiles.fil,"BETARESP")#/length(ifiles)
+             BETAOCEAN_NEW = ncvar_get(ifiles.fil,"BETAOCEAN")#/length(ifiles)
              nc_close(ifiles.fil)
+
+             #-- Important, we need to convert deviations to variations before we weight, and add
+             BETAGPP_NEW[,,2:ensembles] =  aperm(aaply(BETAGPP_NEW[,,2:ensembles],c(3),.fun=function(x){x-BETAGPP_NEW[,,1]}),c(2,3,1)) 
+             BETARESP_NEW[,,2:ensembles] = aperm(aaply(BETARESP_NEW[,,2:ensembles],c(3),.fun=function(x){x-BETARESP_NEW[,,1]}),c(2,3,1)) 
+             BETAOCEAN_NEW[,,2:ensembles] = aperm(aaply(BETAOCEAN_NEW[,,2:ensembles],c(3),.fun=function(x){x-BETAOCEAN_NEW[,,1]}),c(2,3,1)) 
+
+             BETAGPP_NEW[,,2:ensembles][BETAGPP_NEW[,,2:ensembles] <= 0] = ( -(BETAGPP_NEW[,,2:ensembles][BETAGPP_NEW[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+             BETAGPP_NEW[,,2:ensembles][BETAGPP_NEW[,,2:ensembles] > 0] =  ( (BETAGPP_NEW[,,2:ensembles][BETAGPP_NEW[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+             BETARESP_NEW[,,2:ensembles][BETARESP_NEW[,,2:ensembles] <= 0] = ( -(BETARESP_NEW[,,2:ensembles][BETARESP_NEW[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+             BETARESP_NEW[,,2:ensembles][BETARESP_NEW[,,2:ensembles] > 0] =  ( (BETARESP_NEW[,,2:ensembles][BETARESP_NEW[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+             BETAOCEAN_NEW[,,2:ensembles][BETAOCEAN_NEW[,,2:ensembles] <= 0] = ( -(BETAOCEAN_NEW[,,2:ensembles][BETAOCEAN_NEW[,,2:ensembles] <= 0] ) ^2 ) / length(ifiles)
+             BETAOCEAN_NEW[,,2:ensembles][BETAOCEAN_NEW[,,2:ensembles] > 0] =  ( (BETAOCEAN_NEW[,,2:ensembles][BETAOCEAN_NEW[,,2:ensembles] > 0] ) ^2 ) / length(ifiles)
+
+             BETAGPP = BETAGPP + BETAGPP_NEW
+             BETARESP = BETARESP + BETARESP_NEW
+             BETAOCEAN = BETAOCEAN + BETAOCEAN_NEW
           }
          }
         }
+       #-- Convert back into deviations from variations
+
+       BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] = ( -(-BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] <= 0] ) ^0.5 ) 
+       BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] =  ( (BETAGPP[,,2:ensembles][BETAGPP[,,2:ensembles] > 0] ) ^0.5 ) 
+
+       BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] = ( -(-BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] <= 0] ) ^0.5 ) 
+       BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] =  ( (BETARESP[,,2:ensembles][BETARESP[,,2:ensembles] > 0] ) ^0.5 ) 
+
+       BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] = ( -(-BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] <= 0] ) ^0.5 ) 
+       BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] =  ( (BETAOCEAN[,,2:ensembles][BETAOCEAN[,,2:ensembles] > 0] ) ^0.5 ) 
+
+       #-- Adjust mean (which is currently just added together) by weighting
+       BETAGPP[,,1] = BETAGPP[,,1]/length(ifiles)
+       BETARESP[,,1] = BETARESP[,,1]/length(ifiles)
+       BETAOCEAN[,,1] = BETAOCEAN[,,1]/length(ifiles)
+
+       #-- add back mean into deviations
+       BETAGPP[,,2:ensembles] = aperm(aaply(BETAGPP[,,2:ensembles],c(3),.fun=function(x){x + BETAGPP[,,1]}),c(2,3,1))
+       BETARESP[,,2:ensembles] = aperm(aaply(BETARESP[,,2:ensembles],c(3),.fun=function(x){x + BETARESP[,,1]}),c(2,3,1))
+       BETAOCEAN[,,2:ensembles] = aperm(aaply(BETAOCEAN[,,2:ensembles],c(3),.fun=function(x){x + BETAOCEAN[,,1]}),c(2,3,1))
 
        write_new_priors_nc(BETAOCEAN,BETAGPP,BETARESP,prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
 
@@ -249,6 +320,7 @@
 
          system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
 
+         #stop("forced stop")
        }
 
        ###########################################
@@ -321,8 +393,10 @@
                                 njobs=ensembles)
      }
 
-
-     #-- Pull ensemble data from run
+         ################################################
+         #--  
+         ################################################
+         #-- Pull ensemble data from run
          #noaa_dir = "/home/aschuh/carbontracker.obs"
          noaa_dir = "/discover/nobackup/aschuh/carbontracker.obs"
          print("merging data...")
