@@ -7,7 +7,7 @@
 #-- Test args
 #-- noaa_data_dir = "/projects/School/geoschem/data/carbontracker.obs"
 #-- min.time=2009;max.time=2009+60/365;
-create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2009+60/365)
+create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2011.99)
  {
   #-- check for NULLS
   if(is.null(noaa_data_dir))
@@ -25,20 +25,31 @@ create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2009+60/36
 
   #-- Basing on CT useage right now
 
-  ind_no_use = fls.short %in% c("BAO_01C3_02LST_obs.nc",
-                 "EFS_03C0_02LST_obs.nc",
-                 "FEF_03C0_02LST_obs.nc",
-                 "LEF_01C3_02LST_obs.nc",
-                 "NWR_03C0_14LST_obs.nc",
-                 "SCT_01C3_02LST_obs.nc",
-                 "SNP_01C3_02LST_obs.nc",
-                 "WBI_01C3_02LST_obs.nc",
-                 "WKT_01C3_02LST_obs.nc",
-                 "HDP_03C0_02LST_obs.nc",
-                 "HDP_03C0_14LST_obs.nc",
-                 "SPL_03C0_14LST_obs.nc")
+  #ind_no_use = fls.short %in% c("BAO_01C3_02LST_obs.nc",
+  #               "EFS_03C0_02LST_obs.nc",
+  #               "FEF_03C0_02LST_obs.nc",
+  #               "LEF_01C3_02LST_obs.nc",
+  #               "NWR_03C0_14LST_obs.nc",
+  #               "SCT_01C3_02LST_obs.nc",
+  #               "SNP_01C3_02LST_obs.nc",
+  #               "WBI_01C3_02LST_obs.nc",
+  #               "WKT_01C3_02LST_obs.nc",
+  #               "HDP_03C0_02LST_obs.nc",
+  #               "HDP_03C0_14LST_obs.nc",
+  #               "SPL_03C0_14LST_obs.nc")
  
-  ind_no_use_plane = ((1:length(fls.short)) %in% grep("P2",fls.short))
+  ind_no_use = fls.short %in% c(fls[grep("bao",fls)],
+                                fls[grep("wgc",fls)],
+                                "co2_wkt_tower-insitu_1_nighttime-457magl.nc",
+                                "co2_lef_tower-insitu_1_nighttime-396magl.nc",
+                                "co2_sct_tower-insitu_1_nighttime-305magl.nc",
+                                "co2_snp_tower-insitu_1_nighttime-17magl.nc",
+                                "co2_wbi_tower-insitu_1_nighttime-379magl.nc",
+                                "co2_wkt_tower-insitu_1_nighttime-457magl.nc",
+                                "co2_hdp_surface-insitu_3_nighttime.nc")
+ 
+  #ind_no_use_plane = ((1:length(fls.short)) %in% grep("P2",fls.short))
+  ind_no_use_plane = ((1:length(fls.short)) %in% grep("aircraft",fls.short))
  
   fls = fls[!ind_no_use & !ind_no_use_plane]
   fls.short = fls.short[!ind_no_use & !ind_no_use_plane]
@@ -52,10 +63,11 @@ create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2009+60/36
 	fil = nc_open(fls[i])
 	
 	#-- Just need site name, time and meas
-	site = substring(fls.short[i],1,8)
+	site = substring(fls.short[i],5,7)
 	#tim = ncvar_get(fil,"decimal_date")
-	tim = ncvar_get(fil,"date")
-        meas = ncvar_get(fil,"measured_value")
+	tim = ncvar_get(fil,"time_decimal")
+    #meas = ncvar_get(fil,"measured_value")
+	meas = ncvar_get(fil,"value")
 	
 	ind = tim > min.time & tim < max.time
     
