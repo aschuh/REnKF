@@ -23,6 +23,7 @@
 
  require(ncdf4)
  require(plyr)
+ require(lubridate)
 
  #-- Use options
  ensembles = 200
@@ -50,7 +51,7 @@
 
  #-- User directories
  run_dir = "/discover/nobackup/aschuh/run/"
- outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/longrun"
+ outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/eightyear"
  input_geos_file = paste(run_dir,"/input.geos",sep="")
  orig_betas_file = "/home/aschuh/betas.040913.nc"
 
@@ -320,7 +321,7 @@
 
          system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
 
-         #stop("forced stop")
+         stop("forced stop")
        }
 
        ###########################################
@@ -398,7 +399,8 @@
          ################################################
          #-- Pull ensemble data from run
          #noaa_dir = "/home/aschuh/carbontracker.obs"
-         noaa_dir = "/discover/nobackup/aschuh/carbontracker.obs"
+         #noaa_dir = "/discover/nobackup/aschuh/carbontracker.obs"
+         noaa_dir = "/discover/nobackup/aschuh/obspack_co2_1_PROTOTYPE_v1.0.3_2013-01-29/data/nc"
          print("merging data...")
 
          #-- Check for leap day
@@ -412,8 +414,9 @@
 
          fulldat = merge_ens_data(observation.matrix,ensemble.dir=paste(outdir,"/stations/",sep=""))
 
-         #-- Currently optimize_betas takes ens CO2 data w/ 10^-6 multiplier, CHANGE IN FUTURE
-         fulldat$fullensdat = fulldat$fullensdat * 10^-6
+         #-- sort of screwed up, optimize_betas multiplies by 10^6 which leaves the resultant 
+         #-- at co2PPM*10^-6, which is compared to fulldat$obs (same units), need to streamline IN FUTURE
+         fulldat$fullensdat = fulldat$fullensdat * 10^-12
 
           #-- Optimize the betas
           print("optimizing ....")
@@ -452,7 +455,6 @@
          {
            X_post = (X_post - X_post[,1])*inflation.factor + X_post[,1]
          }
-
          #-- Output the betas to netcdf for next cycle
          print("outputting new betas ...")
          output2ncdf(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
