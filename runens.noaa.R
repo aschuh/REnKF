@@ -321,7 +321,7 @@
 
          system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
 
-         stop("forced stop")
+         #stop("forced stop")
        }
 
        ###########################################
@@ -414,9 +414,11 @@
 
          fulldat = merge_ens_data(observation.matrix,ensemble.dir=paste(outdir,"/stations/",sep=""))
 
+         fulldat$obs = fulldat$obs * 10^6  # converts to ppm
+
          #-- sort of screwed up, optimize_betas multiplies by 10^6 which leaves the resultant 
          #-- at co2PPM*10^-6, which is compared to fulldat$obs (same units), need to streamline IN FUTURE
-         fulldat$fullensdat = fulldat$fullensdat * 10^-12
+         #fulldat$fullensdat = fulldat$fullensdat * 10^-12
 
           #-- Optimize the betas
           print("optimizing ....")

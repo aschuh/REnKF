@@ -9,6 +9,9 @@
 #-- min.time=2009;max.time=2009+60/365;
 create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2011.99)
  {
+  min.time = decimal_date(as.Date(min.time, origin = "2000-01-01"))
+  max.time = decimal_date(as.Date(max.time, origin = "2000-01-01"))
+
   #-- check for NULLS
   if(is.null(noaa_data_dir))
   {
@@ -63,10 +66,10 @@ create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2011.99)
 	fil = nc_open(fls[i])
 	
 	#-- Just need site name, time and meas
-	site = substring(fls.short[i],5,7)
+	site = fls.short[i]
 	#tim = ncvar_get(fil,"decimal_date")
 	tim = ncvar_get(fil,"time_decimal")
-    #meas = ncvar_get(fil,"measured_value")
+        #meas = ncvar_get(fil,"measured_value")
 	meas = ncvar_get(fil,"value")
 	
 	ind = tim > min.time & tim < max.time
