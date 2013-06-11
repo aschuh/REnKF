@@ -95,7 +95,7 @@ nc_close(ncnew)
 
 
 
-write_new_priors_nc = function(BETAOCEAN,BETAGPP,BETARESP,fileout,grid.x,grid.y)
+write_new_priors_nc = function(BETAOCEAN,BETAGPP,BETARESP,OBSLANDBIAS=NULL,OBSOCEANBIAS=NULL,fileout,grid.x,grid.y)
 {
 require(ncdf4)
 
@@ -118,6 +118,13 @@ varlist[[2]]  <- ncvar_def(name="BETARESP",units="",
                                  
 varlist[[3]]  <- ncvar_def(name="BETAOCEAN",units="",
                                  dim=list(x,y,nens,t), missval=NA,prec="float")
+
+varlist[[4]]  <- ncvar_def(name="OBSLANDBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float")
+                                 
+varlist[[5]]  <- ncvar_def(name="OBSOCEANBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float")
+                                                                                                   
                                  
 ###########fileout = "/Volumes/user1/aschuh/temp/betasSCOTT.nc"
 #-- fileout = "~/Desktop/tobedeleted/tester.nc"
@@ -128,6 +135,16 @@ ncnew <- nc_create(fileout,varlist)
 ncvar_put(nc=ncnew, varid=varlist[[1]], vals=BETAGPP, start=c(1,1,1,1), count= c(-1,-1,-1,1))
 ncvar_put(ncnew, varlist[[2]],vals=BETARESP)
 ncvar_put(ncnew, varlist[[3]],vals=BETAOCEAN)
+
+if(!is.null(OBSLANDBIAS))
+{
+	ncvar_put(ncnew, varlist[[4]],vals=OBSLANDBIAS)
+}
+
+if(!is.null(OBSOCEANBIAS))
+{
+	ncvar_put(ncnew, varlist[[5]],vals=OBSOCEANBIAS)
+}
 
 nc_close(ncnew) 
 

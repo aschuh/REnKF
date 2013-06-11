@@ -15,7 +15,11 @@ grid.y = 2
 ens.size = 1000
 infl.factor.mean = 0.15
 infl.factor.var = 0.03^2
-fileout = "/home/aschuh/betas.040913.nc"
+obslandbias_mean = 0
+obslandbias_sd = 0.25
+obsoceanbias_mean = 0
+obsoceanbias_sd = 0.25
+fileout = "/user1/aschuh/temp/betas.061113.nc"
 ###############################
 
 #-- Libraries needed
@@ -107,7 +111,13 @@ varlist[[8]]  <- ncvar_def(name="BETAOCEAN_INFL_MEAN",units="",
 
 varlist[[9]]  <- ncvar_def(name="BETAOCEAN_INFL_VAR",units="",
                                  dim=list(x,y,t), missval=NA,prec="float")
+                                 
+varlist[[10]] <- ncvar_def(name="OBSLANDBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float")                                 
 
+varlist[[11]] <- ncvar_def(name="OBSOCEANBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float") 
+                                 
 #fileout = "/user1/aschuh/temp/betas.112712.nc"
 
 ncnew <- nc_create(fileout,varlist)
@@ -121,6 +131,9 @@ ncvar_put(ncnew, varlist[[6]],rep(infl.factor.mean,length(x$vals)*length(y$vals)
 ncvar_put(ncnew, varlist[[7]],rep(infl.factor.var,length(x$vals)*length(y$vals)))
 ncvar_put(ncnew, varlist[[8]],rep(infl.factor.mean,length(x$vals)*length(y$vals)))
 ncvar_put(ncnew, varlist[[9]],rep(infl.factor.var,length(x$vals)*length(y$vals)))
+
+ncvar_put(ncnew, varlist[[10]],rnorm(ens.size,obslandbias_mean,obslandbias_sd))
+ncvar_put(ncnew, varlist[[11]],rnorm(ens.size,obsoceanbias_mean,obsoceanbias_sd))
 
 nc_close(ncnew) 
 

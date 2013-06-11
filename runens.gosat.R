@@ -47,7 +47,7 @@ print(args)
 run_dir = "/discover/nobackup/aschuh/run.gosat/"
 outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/acosb210"
 input_geos_file = paste(run_dir,"/input.geos",sep="")
-orig_betas_file = "/home/aschuh/betas.061113.nc"
+orig_betas_file = "/discover/nobackup/aschuh/data/betas/betas.061113.nc"
 
 #-- Set working directory and sun grid eng. options
 setwd(paste(run_dir,"../run/ENSCODE",sep=""))
@@ -66,7 +66,7 @@ geos_inputfile_check(input_geos_file,outdir,prop_model)
 
 if(que_soft=="sge"){sge.options(sge.use.cluster=TRUE,sge.save.global=TRUE,sge.remove.ﬁles=FALSE)}
 
-system(paste("cp ",outdir,"/betas/betas_cycle_prior_000.nc ",outdir,"/betas/betas_cycle_post_000.nc",sep=""))
+#system(paste("cp ",outdir,"/betas/betas_cycle_prior_000.nc ",outdir,"/betas/betas_cycle_post_000.nc",sep=""))
 
 
 #-- *Need to check that output directories are there
@@ -101,25 +101,35 @@ for(i in startcycle:endcycle)
         if(prop_model == "ct")
         {
          
-        #vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
-        #ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
+         #vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
+         #ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
 
-        vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
-        ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
+         vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
+         ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
 
-        pr_ind = vv == "000"
-        ifiles[pr_ind] = orig_betas_file
+         pr_ind = vv == "000"
+         ifiles[pr_ind] = orig_betas_file
 
-       ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
+         if(estimate_land_ocean_bias)
+         {
+        	ret2 = create_prior_landoceanbias(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles) 
+        	ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
+        	write_new_priors_nc(BETAOCEAN=ret$BETAOCEAN,BETAGPP=ret$BETAGPP,
+        	                    BETARESP=ret$BETARESP,
+        	                    OBSLANDBIAS=ret2$OBSLANDBIAS,
+        	                    OBSOCEANBIAS=ret2$OBSOCEANBIAS,
+        	                    fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
+          }else{       	
+       	    ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
+       	    write_new_priors_nc(BETAOCEAN=ret$BETAOCEAN,BETAGPP=ret$BETAGPP,
+       	                        BETARESP=ret$BETARESP,
+       	                        fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
+          }
 
-       ret2 = create_prior_landoceanbias(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
-
-       write_new_priors_nc(ret$BETAOCEAN,ret$BETAGPP,ret$BETARESP,prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
-
-       }else
-       {
+        }else
+        {
          system(paste("cp ",post_betas_tminus1_file," ",prior_betas_tminus1_file,sep=""))
-       }
+        }
 
 
         print(paste("Working on cycle",i))
@@ -206,7 +216,7 @@ for(i in startcycle:endcycle)
 
          system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
 
-         #stop("forced stop")
+         stop("forced stop")
        }
 
        ###########################################

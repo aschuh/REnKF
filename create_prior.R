@@ -137,13 +137,13 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
                                OBSLANDBIAS = array(dim=c(1,ensembles))
                        	       OBSOCEANBIAS =  array(dim=c(1,ensembles))
                        	      }
-                       OBSLANDBIAS[j] = ncvar_get(ifiles.fil,"OBSLANDBIAS",start=c(samp[j]),count=c(1))#/length(ifiles)
-                       OBSOCEANBIAS[j] = ncvar_get(ifiles.fil,"OBSOCEANBIAS",start=c(samp[j]),count=c(1))#/length(ifiles)
+                       OBSLANDBIAS[j] = ncvar_get(ifiles.fil,"OBSLANDBIAS",start=c(samp[j],1),count=c(1,1))#/length(ifiles)
+                       OBSOCEANBIAS[j] = ncvar_get(ifiles.fil,"OBSOCEANBIAS",start=c(samp[j],1),count=c(1,1))#/length(ifiles)
                                         }
                  
                  #-- Important, we need to convert deviations to variations before we weight, and add
-                 OBSLANDBIAS[2:ensembles] = OBSLANDBIAS-OBSLANDBIAS[1]
-                 OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS-OBSOCEANBIAS[1]
+                 OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles]-rep(OBSLANDBIAS[1],ensembles-1)
+                 OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles]-rep(OBSOCEANBIAS[1],ensembles-1)
                                   
                  OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
                  OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
@@ -158,8 +158,8 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
                  nc_close(ifiles.fil)
 
                  #-- Important, we need to convert deviations to variations before we weight, and add
-                 OBSLANDBIAS[2:ensembles] = OBSLANDBIAS-OBSLANDBIAS[1]
-                 OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS-OBSOCEANBIAS[1]
+                 OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles]-rep(OBSLANDBIAS[1],ensembles-1)
+                 OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles]-rep(OBSOCEANBIAS[1],ensembles-1)
                                   
                  OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
                  OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
@@ -180,8 +180,8 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
              nc_close(ifiles.fil)
 
              #-- Important, we need to convert deviations to variations before we weight, and add
-                 OBSLANDBIAS_NEW[2:ensembles] = OBSLANDBIAS_NEW-OBSLANDBIAS_NEW[1]
-                 OBSOCEANBIAS_NEW[2:ensembles] = OBSOCEANBIAS_NEW-OBSOCEANBIAS_NEW[1]
+                 OBSLANDBIAS_NEW[2:ensembles] = OBSLANDBIAS_NEW[2:ensembles]-rep(OBSLANDBIAS_NEW[1],ensembles-1)
+                 OBSOCEANBIAS_NEW[2:ensembles] = OBSOCEANBIAS_NEW[2:ensembles]-rep(OBSOCEANBIAS_NEW[1],ensembles-1)
                                   
                  OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] = ( -(OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
                  OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] =  ( (OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] ) ^2 ) / length(ifiles)
@@ -207,8 +207,8 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
        OBSOCEANBIAS[1] = OBSOCEANBIAS[1]/length(ifiles)
 
        #-- add back mean into deviations
-       OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles] + OBSLANDBIAS[1]
-       OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles] + OBSOCEANBIAS[1]
+       OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles] + rep(OBSLANDBIAS[1],ensembles-1)
+       OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles] + rep(OBSOCEANBIAS[1],ensembles-1)
        
        return(list(OBSLANDBIAS=OBSLANDBIAS,OBSOCEANBIAS=OBSOCEANBIAS))
 	
