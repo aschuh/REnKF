@@ -4,7 +4,8 @@
 #--  ens_matrix and obs_vector need to come in as ppm
 #####################################################
 
-optimize_betas = function(betas_file,Rdiag_vector,ens_matrix,obs_vector,method=2,add_error=FALSE,localize=FALSE,diags=FALSE)
+optimize_betas = function(betas_file,Rdiag_vector,ens_matrix,obs_vector,method=2,add_error=FALSE,localize=FALSE,
+                          estimate_land_ocean_bias=FALSE,diags=FALSE)
 {
 
 #-- Subtract one for "obs" in last column, no longer
@@ -64,6 +65,12 @@ if(class(betas_file)=="character")
  betas_resp = ncvar_get(fil,"BETARESP")
  betas_ocean = ncvar_get(fil,"BETAOCEAN")
 
+ if(estimate_land_ocean_bias)
+ {
+    landbias_obs = ncvar_get(fil,"OBSLANDBIAS")
+    oceanbias_obs = ncvar_get(fil,"OBSOCEANBIAS")
+ }
+
  nc_close(fil)
 
  betas_vect_gpp = apply(betas_gpp,c(3),FUN=function(x){x[LAND.MASK]})  #betas_gpp[LAND.MASK] 
@@ -72,6 +79,11 @@ if(class(betas_file)=="character")
 
  #-- BETA vectorized, GPP FIRST!!
  betas_vect = rbind(betas_vect_gpp,betas_vect_resp,betas_vect_ocean)
+
+ if(estimate_land_ocean_bias)
+ {
+    betas_vect = rbind(betas_vect,landbias_obs,oceanbias_obs)
+ }
 
  rm(betas_gpp)
  rm(betas_resp)
@@ -120,10 +132,18 @@ Rinv = diag(Rdiag_vector[obs_ind]^-1)
 
 A =  1/sqrt(nens-1)*(betas_vect[,2:nens] - betas_vect[,1])
 
+
+if(estimate_land_ocean_bias)
+ {
+    #-- Not sure yet
+ }
+
 #-- HA is forecast observation residuals, normalized by ensemble size
 
 HA = 1/sqrt(nens-1) * apply(out[obs_ind,2:nens],2,FUN=function(x){x - out[obs_ind,1]})
 
+#HA[fulldat$landmask,] = HA[fulldat$landmask,] + matrix(rep(bb[-1,1],sum(fulldat$landmask)),ncol=length(bb[-1,1]),byrow=TRUE)
+#HA[fulldat$landmask==0,] = HA[fulldat$landmask==0,] + matrix(rep(bb[-1,2],sum(fulldat$landmask==0)),ncol=length(bb[-1,2]),byrow=TRUE)
 
 #-- Provide subset of obs to calc chi-sq stats on
 
@@ -141,6 +161,9 @@ alpha = optimize(f=chi_sq_fun,interval=c(0,100),tol=0.01,obs_ind_sq=obs_ind_sq)$
 
 #-- We just adjust Rinv because nothing else is currently being used (R related), past this pt
 Rinv = alpha^-1 * Rinv
+
+#-- Create diagnostic infl matrix
+S0 = diag(Rinv) * apply(HA,1,FUN=function(x){sum(x^2)})
 
 #-- This is what S should be, we'll directly find S^-1 instead
 #S = (1/(nens-2))*HA %*% t(HA) + R
@@ -500,5 +523,5 @@ if(method==4)
 	part5 = part4 %*% tHA
 }
 
-return(X_post)
+return(list(X_post=X_post,S0=S0))
 }
