@@ -6,7 +6,7 @@
 #-- ensemble.dir = "/scratch4/aschuh/GEOS-CHEM_output/scottbetas2/ascends/"
 #-- observation.matrix=output
 
-merge_ens_gosat_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=2)
+merge_ens_gosat_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=2,return.landmask=FALSE)
 {
    #require(akima)  #for interp
    
@@ -98,8 +98,28 @@ merge_ens_gosat_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=2)
 		    	}else{indx = indx - 1}
 		    }
 		   err.adj = sqrt(count) * enstmpdat$ERROR
-		  }
 		  
+                  if(return.landmask)
+                   {
+                       longrid=seq(-181.25,181.25-model.res_x,by=model.res_x)
+
+                       latgrid=c(-90,seq(-90+0.5*model.res_y, 90-1.5*model.res_y,by=model.res_y), 89)
+
+                       #Then you have to make the following assignment on longitude
+
+                       lonbox = sapply(enstmpdat$LON,FUN=function(x){max(grep(TRUE,x > longrid))})
+
+                       latbox = sapply(enstmpdat$LAT,FUN=function(x){max(grep(TRUE,x > latgrid))})
+
+                       lonbox[lonbox==145] = 1
+
+                       LAND.MASK = !is.na(rotate270.matrix(read.fwf("/discover/nobackup/aschuh/run/ENSCODE/Regions_land.dat",widths=rep(1,144))))
+
+                       land.grid_ind = LAND.MASK[cbind(lonbox,latbox)] == 1
+
+                   }
+                  coords = enstmpdat[,c("LON","LAT")]
+                  }		  
 		 else{
 		 	   fullensdat[,i] = enstmpdat$TRA_001
 		 	  }
@@ -113,9 +133,15 @@ merge_ens_gosat_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=2)
 	#	  tmpdat = read.table(pseudo.fls[j],header=TRUE)
 	#	  if(j==1){enstmpdat = tmpdat}else{enstmpdat = rbind(enstmpdat,tmpdat)}
 	#	 }
-	#	 fullensdat= cbind(fullensdat,enstmpdat$TRA_001)
-   
-   return.data = list(fullensdat=fullensdat,err = err.adj,obs=obs)
+	#	 fullensdat= cbind(fullensdat,enstmpdat$TRA_001)  
+ 
+   return.data = list(fullensdat=fullensdat*10^6,err = err.adj,obs=obs,coords=coords)
+
+   if(return.landmask)
+    {
+      return.data$landmask = land.grid_ind
+    }   
+
    return(return.data)
    
    }
