@@ -122,6 +122,8 @@ create_prior = function(ifiles,pr_ind,estimate_land_ocean_bias,ensembles)
 
 create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
 {
+        divisor = length(ifiles)^2
+
 	for(k in 1:length(ifiles))
         {
          if(k==1)
@@ -134,22 +136,28 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
                for(j in 1:ensembles){
                      ifiles.fil = nc_open(ifiles[k],readunlim=FALSE)
                      if(j==1){
-                               OBSLANDBIAS = array(dim=c(1,ensembles))
-                       	       OBSOCEANBIAS =  array(dim=c(1,ensembles))
+                               OBSLANDBIAS = array(dim=c(ensembles))
+                       	       OBSOCEANBIAS =  array(dim=c(ensembles))
                        	      }
                        OBSLANDBIAS[j] = ncvar_get(ifiles.fil,"OBSLANDBIAS",start=c(samp[j],1),count=c(1,1))#/length(ifiles)
                        OBSOCEANBIAS[j] = ncvar_get(ifiles.fil,"OBSOCEANBIAS",start=c(samp[j],1),count=c(1,1))#/length(ifiles)
-                                        }
+         
+                     #-- I need to update the first vect element to be "zero" for the "grand" priors, "cold ens creation" script
+                     if(j==1)
+                       {
+                          OBSLANDBIAS[1] = 0;OBSOCEANBIAS[1] = 0;
+                       }
+                 }
                  
                  #-- Important, we need to convert deviations to variations before we weight, and add
                  OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles]-rep(OBSLANDBIAS[1],ensembles-1)
                  OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles]-rep(OBSOCEANBIAS[1],ensembles-1)
                                   
-                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / divisor
 
-                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] = ( -(OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] =  ( (OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] = ( -(OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] =  ( (OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] ) ^2 ) / divisor
 
             }else{
                  ifiles.fil = nc_open(ifiles[k])
@@ -161,11 +169,11 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
                  OBSLANDBIAS[2:ensembles] = OBSLANDBIAS[2:ensembles]-rep(OBSLANDBIAS[1],ensembles-1)
                  OBSOCEANBIAS[2:ensembles] = OBSOCEANBIAS[2:ensembles]-rep(OBSOCEANBIAS[1],ensembles-1)
                                   
-                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] = ( -(OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] =  ( (OBSLANDBIAS[2:ensembles][OBSLANDBIAS[2:ensembles] > 0] ) ^2 ) / divisor
 
-                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] = ( -(OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] =  ( (OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] = ( -(OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] =  ( (OBSOCEANBIAS[2:ensembles][OBSOCEANBIAS[2:ensembles] > 0] ) ^2 ) / divisor
             }
           }else
           {
@@ -183,11 +191,11 @@ create_prior_landoceanbias = function(ifiles,pr_ind,ensembles)
                  OBSLANDBIAS_NEW[2:ensembles] = OBSLANDBIAS_NEW[2:ensembles]-rep(OBSLANDBIAS_NEW[1],ensembles-1)
                  OBSOCEANBIAS_NEW[2:ensembles] = OBSOCEANBIAS_NEW[2:ensembles]-rep(OBSOCEANBIAS_NEW[1],ensembles-1)
                                   
-                 OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] = ( -(OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] =  ( (OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] = ( -(OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] =  ( (OBSLANDBIAS_NEW[2:ensembles][OBSLANDBIAS_NEW[2:ensembles] > 0] ) ^2 ) / divisor
 
-                 OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] <= 0] = ( -(OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] <= 0] ) ^2 ) / length(ifiles)
-                 OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] > 0] =  ( (OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] > 0] ) ^2 ) / length(ifiles)
+                 OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] <= 0] = ( -(OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] <= 0] ) ^2 ) / divisor
+                 OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] > 0] =  ( (OBSOCEANBIAS_NEW[2:ensembles][OBSOCEANBIAS_NEW[2:ensembles] > 0] ) ^2 ) / divisor
 
              OBSLANDBIAS = OBSLANDBIAS + OBSLANDBIAS_NEW
              OBSOCEANBIAS = OBSOCEANBIAS + OBSOCEANBIAS_NEW
