@@ -17,7 +17,7 @@ remap2full = function(v,mask)
     return(tmpm)
 }
    
-output2ncdf = function(betas = X_post,fileout)
+output2ncdf = function(betas = X_post,fileout,OBSLANDBIAS=FALSE,OBSOCEANBIAS=FALSE)
 {
 
 #-- Need to review this stuff a bit, masks aren't great, land.mask is a bit bigger than ocean.mask, why?
@@ -39,6 +39,16 @@ map.GPP = cbind(apply(map.GPP,1,mean),map.GPP)
 map.RESP = cbind(apply(map.RESP,1,mean),map.RESP)
 map.OCEAN = cbind(apply(map.OCEAN,1,mean),map.OCEAN)
 
+#-- If we are going for land/ocean bias
+if(OBSOCEANBIAS){
+     bias.OCEAN = betas[15831,]
+     bias.OCEAN = c(mean(bias.OCEAN),bias.OCEAN)
+}
+
+if(OBSLANDBIAS){
+     bias.LAND = betas[15830,]
+     bias.LAND = c(mean(bias.LAND),bias.LAND)
+}
 
 ####################################################################
 #--  Variables you must set these dim/gridcellsize correspond
@@ -56,6 +66,14 @@ ens.size = dim(betas)[2]
 gpp_bias_ncfile_feed = array(map.GPP,dim=c(144,91,ens.size,1))
 resp_bias_ncfile_feed = array(map.RESP,dim=c(144,91,ens.size,1))
 ocean_bias_ncfile_feed = array(map.OCEAN,dim=c(144,91,ens.size,1))
+
+if(OBSLANDBIAS){
+land_offset_ncfile_feed = array(bias.LAND,dim=c(ens.size,1))
+}
+
+if(OBSOCEANBIAS){
+ocean_offset_ncfile_feed = array(bias.OCEAN,dim=c(ens.size,1))
+}
 
 require(ncdf4)
 
@@ -78,6 +96,18 @@ varlist[[2]]  <- ncvar_def(name="BETARESP",units="",
                                  
 varlist[[3]]  <- ncvar_def(name="BETAOCEAN",units="",
                                  dim=list(x,y,nens,t), missval=NA,prec="float")
+
+if(OBSLANDBIAS)
+{
+  varlist[[4]] <- ncvar_def(name="OBSLANDBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float")     
+}
+
+if(OBSOCEANBIAS)
+{
+   varlist[[5]] <- ncvar_def(name="OBSOCEANBIAS",units="",
+                                 dim=list(nens,t), missval=NA,prec="float")     
+}
                                  
 ###########fileout = "/Volumes/user1/aschuh/temp/betasSCOTT.nc"
 #-- fileout = "~/Desktop/tobedeleted/tester.nc"
@@ -88,6 +118,16 @@ ncnew <- nc_create(fileout,varlist)
 ncvar_put(nc=ncnew, varid=varlist[[1]], vals=gpp_bias_ncfile_feed, start=c(1,1,1,1), count= c(-1,-1,-1,1))
 ncvar_put(ncnew, varlist[[2]],resp_bias_ncfile_feed)
 ncvar_put(ncnew, varlist[[3]],ocean_bias_ncfile_feed)
+
+if(OBSLANDBIAS)
+{
+  ncvar_put(ncnew, varlist[[4]],land_offset_ncfile_feed)
+}
+
+if(OBSOCEANBIAS)
+{
+  ncvar_put(ncnew, varlist[[5]],ocean_offset_ncfile_feed)
+}
 
 nc_close(ncnew) 
 
@@ -119,13 +159,17 @@ varlist[[2]]  <- ncvar_def(name="BETARESP",units="",
 varlist[[3]]  <- ncvar_def(name="BETAOCEAN",units="",
                                  dim=list(x,y,nens,t), missval=NA,prec="float")
 
+if(!is.null(OBSLANDBIAS)){
+
 varlist[[4]]  <- ncvar_def(name="OBSLANDBIAS",units="",
                                  dim=list(nens,t), missval=NA,prec="float")
-                                 
+}
+
+if(!is.null(OBSOCEANBIAS)){                                 
 varlist[[5]]  <- ncvar_def(name="OBSOCEANBIAS",units="",
-                                 dim=list(nens,t), missval=NA,prec="float")
-                                                                                                   
-                                 
+                                 dim=list(nens,t), missval=NA,prec="float")                                                                                                  
+}                                 
+
 ###########fileout = "/Volumes/user1/aschuh/temp/betasSCOTT.nc"
 #-- fileout = "~/Desktop/tobedeleted/tester.nc"
 #-- Pull data
