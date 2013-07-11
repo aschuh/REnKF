@@ -43,7 +43,8 @@ create_noaa_data = function(noaa_data_dir=NULL,min.time=2009,max.time=2011.99)
  
   ind_no_use = fls.short %in% c(fls[grep("bao",fls)],
                                 fls[grep("wgc",fls)],
-                                "co2_wkt_tower-insitu_1_nighttime-457magl.nc",
+                              "co2_poc_shipboard-flask_1_representative.nc",  
+                              "co2_wkt_tower-insitu_1_nighttime-457magl.nc",
                                 "co2_lef_tower-insitu_1_nighttime-396magl.nc",
                                 "co2_sct_tower-insitu_1_nighttime-305magl.nc",
                                 "co2_snp_tower-insitu_1_nighttime-17magl.nc",
