@@ -5,7 +5,7 @@
 #####################################################
 
 optimize_betas = function(betas_file,Rdiag_vector,ens_matrix,obs_vector,method=2,add_error=FALSE,localize=FALSE,
-                          estimate_land_ocean_bias=FALSE,landmask = NULL,diags=FALSE)
+                          estimate_land_ocean_bias=FALSE,landmask = NULL,diags=FALSE,co2.multiplier=1)
 {
 
 #-- Subtract one for "obs" in last column, no longer
@@ -30,7 +30,7 @@ out = as.data.frame(ens_matrix)
 out = apply(out,2,FUN=function(x){as.numeric(as.character(x))})
 
 #-- ***********KEEP EYE ON THIS, MIGHT NEED FOR ASCENDS**************
-#out = out * 10^6
+out = out * co2_multiplier
 
 #-- This is for pseudo experiment, adds the assumed 1 ppm sd error
 if(add_error)
