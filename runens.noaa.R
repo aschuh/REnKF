@@ -28,11 +28,11 @@
  #-- Use options
  ensembles = 200
  cycle_length = 14
- cycles = 1:(26*6)
+ cycles = 1:(26*5+1)
  startcycle = cycles[1]
  endcycle = cycles[length(cycles)]
  inflation.factor = 1.1
- startdate = as.POSIXlt(strptime('2005-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
+ startdate = as.POSIXlt(strptime('2008-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
  startdate$isdst = 0
 
  args = commandArgs(TRUE)
@@ -50,14 +50,14 @@
  }
 
  #-- User directories
- run_dir = "/discover/nobackup/aschuh/run/"
- outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/eightyear"
+ run_dir = "/discover/nobackup/aschuh/run.noaa/"
+ outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/noaa_forodell"
  input_geos_file = paste(run_dir,"/input.geos",sep="")
- orig_betas_file = "/home/aschuh/betas.040913.nc"
+ orig_betas_file = "/discover/nobackup/aschuh/data/betas/betas.061213.nc"
 
 
  #-- Set working directory and sun grid eng. options
- setwd(paste(run_dir,"ENSCODE",sep=""))
+ setwd(paste(run_dir,"../run/ENSCODE",sep=""))
 
  #-- Necessary code
  source("merge_ens_data.R")
@@ -230,7 +230,7 @@
        BETARESP[,,2:ensembles] = aperm(aaply(BETARESP[,,2:ensembles],c(3),.fun=function(x){x + BETARESP[,,1]}),c(2,3,1))
        BETAOCEAN[,,2:ensembles] = aperm(aaply(BETAOCEAN[,,2:ensembles],c(3),.fun=function(x){x + BETAOCEAN[,,1]}),c(2,3,1))
 
-       write_new_priors_nc(BETAOCEAN,BETAGPP,BETARESP,prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
+       write_new_priors_nc(BETAOCEAN=BETAOCEAN,BETAGPP=BETAGPP,BETARESP=BETARESP,fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
 
        }else
        {
@@ -297,7 +297,7 @@
        if(que_soft=="nasa"){
 
          #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir_noaa"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -319,7 +319,7 @@
 
          close(con)
 
-         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
+         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 6")
 
          #stop("forced stop")
        }
@@ -400,7 +400,7 @@
          #-- Pull ensemble data from run
          #noaa_dir = "/home/aschuh/carbontracker.obs"
          #noaa_dir = "/discover/nobackup/aschuh/carbontracker.obs"
-         noaa_dir = "/discover/nobackup/aschuh/obspack_co2_1_PROTOTYPE_v1.0.3_2013-01-29/data/nc"
+         noaa_dir = "/discover/nobackup/aschuh/obspack_co2_1_PROTOTYPE_v1.0.4b_2014-02-13/data/nc"
          print("merging data...")
 
          #-- Check for leap day
@@ -436,21 +436,22 @@
           	{
           	   print(paste("working on obs: ",brks[k]," to ",brks[k+1],sep=""))
           	   betas_arg = prior_betas_tminus1_file
-          	   X_post = optimize_betas(betas_file=betas_arg,
+          	   ret = optimize_betas(betas_file=betas_arg,
           	                          Rdiag_vector=fulldat$err[brks[k]:brks[k+1]]^2,
                                          ens_matrix=fulldat$fullensdat[brks[k]:brks[k+1],],
                                          obs_vector=fulldat$obs[brks[k]:brks[k+1]],method=2,
                                          localize=TRUE,diags=TRUE)
-                betas_arg = X_post
+                betas_arg = ret$X_post
 
           	}
           }else
           {
-          	X_post = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=fulldat$err^2,
+          	ret = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=fulldat$err^2,
           	ens_matrix=fulldat$fullensdat,obs_vector=fulldat$obs,method=2,
           	localize=TRUE,diags=TRUE)
           }
 
+         X_post = ret$X_post
 
          #-- Inflate variance of ensemble for "mean propagation" case
          if(prop_model %in% c('pure','ct') )
@@ -460,7 +461,7 @@
          #-- Output the betas to netcdf for next cycle
          print("outputting new betas ...")
          output2ncdf(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
-                       pad(cycles[i],width=3,fill="0"),".nc",sep=""))
+                       pad(cycles[i],width=3,fill="0"),".nc",sep=""),output_biases=FALSE)
 
          #-- Create diagnostics
          #diags(X_post)
@@ -480,7 +481,7 @@
        {
 
  #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir_noaa"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -503,7 +504,7 @@
 
          close(con)
 
-         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 1")
+         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 1")
 
         }
 
