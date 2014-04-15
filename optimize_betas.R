@@ -133,11 +133,6 @@ Rinv = diag(Rdiag_vector[obs_ind]^-1)
 A =  1/sqrt(nens-1)*(betas_vect[,2:nens] - betas_vect[,1])
 
 
-if(estimate_land_ocean_bias)
- {
-    #-- Not sure yet
- }
-
 #-- HA is forecast observation residuals, normalized by ensemble size
 
 HA = 1/sqrt(nens-1) * apply(out[obs_ind,2:nens],2,FUN=function(x){x - out[obs_ind,1]})
@@ -164,6 +159,47 @@ Rinv = alpha^-1 * Rinv
 
 #-- Create diagnostic infl matrix
 S0 = diag(Rinv) * apply(HA,1,FUN=function(x){sum(x^2)})
+
+######################################################################
+#-- If we are looking for land/ocean bias correction
+######################################################################
+
+if(estimate_land_ocean_bias)
+ {
+
+#-- Working out observation bias Kalman Gain
+#need S^-1 for    S = (1/(nens-2))*HA %*% t(HA) + OBSBIAS_PR_COV + R
+
+#-- Need to probably update this
+
+ biasmeanvector = rep(NA,length(fulldat$landmask))
+ biasmeanvector[fulldat$landmask] = landbias_obs[1]
+ biasmeanvector[!fulldat$landmask] = oceanbias_obs[1]
+ 
+ Rbias_v = rep(NA,dim(Rinv)[1])
+
+ Rbias_v[fulldat$landmask] = 0.25^2
+ 
+ Rbias_v[!fulldat$landmask] = 0.25^2 
+
+ Rbias_mat = diag(Rbias_v) 
+
+ Rinv_new = diag((diag(Rbias_mat + R))^-1)
+
+ cent = solve(diag(rep(1,dim(HA)[2])) + t(HA) %*% Rinv_new %*% HA )
+
+ Sinv = Rinv_new %*% HA %*% cent %*%
+                   t(HA) %*% Rinv_new
+
+ Sinv2 = as.matrix(Rinv_new) - as.matrix(Sinv)
+ 
+ obsbias_KalmanGain = Rbias_mat %*% Sinv2
+ 
+ obsbias_postmean = biasmeanvector +  obsbias_KalmanGain %*% as.matrix(  obs_vector[obs_ind] - biasmeanvector - out[obs_ind,1])
+
+}
+
+#-- Now for state estimation
 
 #-- This is what S should be, we'll directly find S^-1 instead
 #S = (1/(nens-2))*HA %*% t(HA) + R
