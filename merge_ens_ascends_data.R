@@ -96,7 +96,7 @@ merge_ens_ascends_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=
 		    	}else{indx = indx - 1}
 		    }
 		   err.adj = sqrt(count) * enstmpdat$ERROR
-		  }
+                 }
 		  
 		 else{
 		 	   fullensdat[,i] = enstmpdat$TRA_001

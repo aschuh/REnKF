@@ -5,7 +5,7 @@
 #####################################################
 
 optimize_betas = function(betas_file,Rdiag_vector,ens_matrix,obs_vector,method=2,add_error=FALSE,localize=FALSE,
-                          estimate_land_ocean_bias=FALSE,diags=FALSE)
+                          estimate_land_ocean_bias=FALSE,landmask = NULL,diags=FALSE,co2.multiplier=1)
 {
 
 #-- Subtract one for "obs" in last column, no longer
@@ -29,8 +29,8 @@ out = as.data.frame(ens_matrix)
 #-- For ASCENDS
 out = apply(out,2,FUN=function(x){as.numeric(as.character(x))})
 
-#-- ***********KEEP EYE ON THIS, MIGHT NEED FOR ASCENDS**************
-#out = out * 10^6
+#-- ***********KEEP EYE ON THIS, MIGHT NEED FOR ASCENDS, probably 10^6**************
+out = out * co2.multiplier
 
 #-- This is for pseudo experiment, adds the assumed 1 ppm sd error
 if(add_error)
@@ -97,6 +97,17 @@ if(class(betas_file)=="character")
 if(class(betas_file)=="matrix")
 {
   betas_vect = betas_file	
+}
+
+#-- If this is a land/ocean bias correction run, add the biases into the ensemble run
+
+if(estimate_land_ocean_bias)
+{
+ out[landmask,] = out[landmask,] + matrix(rep(betas_vect[15830,],sum(landmask)),
+                                  nrow=sum(landmask),byrow=TRUE) 
+
+ out[!landmask,] = out[!landmask,] + matrix(rep(betas_vect[15831,],sum(!landmask)),
+                                  nrow=sum(!landmask),byrow=TRUE) 
 }
 
 ###################################################################
@@ -195,17 +206,25 @@ if(estimate_land_ocean_bias)
  
 # obsbias_KalmanGain = Rbias_mat %*% Sinv2
  
-# obsbias_postmean = biasmeanvector +  obsbias_KalmanGain %*% as.matrix(  obs_vector[obs_ind] -  #biasmeanvector - out[obs_ind,1])
+# obsbias_postmean = biasmeanvector +  obsbias_KalmanGain %*% as.matrix(  obs_vector[obs_ind] -  biasmeanvector - out[obs_ind,1])
 
 }
 
 #-- Now for state estimation
-HA[fulldat$landmask,] = HA[fulldat$landmask,] + matrix(rep(betas_vect[15830,-1],sum(fulldat$landmask)),
-                                  nrow=sum(fulldat$landmask),byrow=FALSE)
 
-HA[!fulldat$landmask,] = HA[!fulldat$landmask,] + matrix(rep(betas_vect[15831,-1],sum(!fulldat$landmask)),
-                                  nrow=sum(!fulldat$landmask),byrow=FALSE)
-                                  
+#-- Double check constant being applied here, 1/sqrt(nens-1)
+
+#-- This portion is NOW IN INTRO TO FUNCTION
+#if(estimate_land_ocean_bias)
+#{
+# HA[landmask,] = HA[landmask,] + matrix(rep(betas_vect[15830,-1],sum(landmask)),
+#                                  nrow=sum(landmask),byrow=TRUE) * 1/sqrt(nens-1)
+#
+# HA[!landmask,] = HA[!landmask,] + matrix(rep(betas_vect[15831,-1],sum(!landmask)),
+#                                  nrow=sum(!landmask),byrow=TRUE) * 1/sqrt(nens-1)
+#}                                 
+
+
 #-- This is what S should be, we'll directly find S^-1 instead
 #S = (1/(nens-2))*HA %*% t(HA) + R
 cent = solve(diag(rep(1,dim(HA)[2])) + t(HA) %*% Rinv %*% HA )
