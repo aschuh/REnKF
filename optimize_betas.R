@@ -184,10 +184,13 @@ Tmat = mat.sqrt(TTmat)
 
 #Tmat2 = chol(TTmat)
 
+Kgain = A %*% t(HA) %*% Sinv2
+
+S1 = Kgain
 
 #-- Calc posterior mean, ENS0001 is always the mean/prior 
 #X_postmean = betas_vect[,1] + A %*% t(HA) %*% Sinv2 %*% as.matrix(  out[obs_ind,nens+1]  - out[obs_ind,1])
-X_postmean = betas_vect[,1] + A %*% t(HA) %*% Sinv2 %*% as.matrix(  obs_vector[obs_ind]  - out[obs_ind,1])
+X_postmean = betas_vect[,1] + Kgain %*% as.matrix(  obs_vector[obs_ind]  - out[obs_ind,1])
 
 #-- For NOAA in situ
 #X_postmean = betas_vect[,1] + 1/198*A %*% t(HA) %*% solve(P) %*% as.matrix( ( out$PSEUDO[obs_ind] + rnormpert ) - out[obs_ind,4])
@@ -523,5 +526,5 @@ if(method==4)
 	part5 = part4 %*% tHA
 }
 
-return(list(X_post=X_post,S0=S0))
+return(list(X_post=X_post,S0=S0,S1=S1))
 }
