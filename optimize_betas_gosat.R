@@ -5,7 +5,7 @@
 #####################################################
 
 optimize_betas = function(betas_file,Rdiag_vector,ens_matrix,obs_vector,method=2,add_error=FALSE,localize=FALSE,
-                          estimate_land_ocean_bias=FALSE,landmask = NULL,diags=FALSE,co2.multiplier=1)
+                          estimate_land_ocean_bias=FALSE,landmask = NULL,diags=FALSE,co2.multiplier=1,R_scaling=1,test=0)
 {
 
 #-- Subtract one for "obs" in last column, no longer
@@ -35,7 +35,7 @@ out = out * co2.multiplier
 #-- This is for pseudo experiment, adds the assumed 1 ppm sd error
 if(add_error)
 {
-	rnormpert =  rnorm(dim(out)[1],mean=0,sd=sqrt(Rdiag_vector))
+    rnormpert =  rnorm(dim(out)[1],mean=0,sd=sqrt(Rdiag_vector))
     #out[,nens+1] = out[,nens+1] + rnormpert
     obs_vector = obs_vector + rnormpert 
 }
@@ -53,6 +53,8 @@ LAND.MASK = !is.na(rotate270.matrix(read.fwf("/discover/nobackup/aschuh/run/ENSC
 
 LAND.MASK = LAND.MASK[,3:93]
 
+#if(is.null(landmask)) { landmask = LAND.MASK }
+
 #-- Pull betas used for the ensemble runs (eventually needs to be tagged w/ cycle #)
 
 require(ncdf4)
@@ -67,8 +69,56 @@ if(class(betas_file)=="character")
 
  if(estimate_land_ocean_bias)
  {
-    landbias_obs = ncvar_get(fil,"OBSLANDBIAS")
+    if(test==1)
+    {
+       print("setting up correlated biases....")
+       library(mnormt)
+       offsets = rmnorm(200,mean=c(0,0,0),varcov=0.25^2*matrix(c(1,-0.67,-0.67,-0.67,1,0.5,-0.67,0.5,1),ncol=3,byrow=T)) 
+       oceanbias_obs = c(0,offsets[-1,1])
+       land_M_offset = c(0,offsets[-1,2])
+       land_H_offset = c(0,offsets[-1,3]) 
+    }else{
+    #landbias_obs = ncvar_get(fil,"OBSLANDBIAS")
     oceanbias_obs = ncvar_get(fil,"OBSOCEANBIAS")
+    #s32coef_obs = ncvar_get(fil,"OBSS32COEF")
+    #b1_offsetcoef_obs = ncvar_get(fil,"OBSB1_OFFSETCOEF")
+
+    #oceanbias_obs = ncvar_get(fil,"OBSOCEANBIAS")
+    #s32coef_obs = ncvar_get(fil,"OBSS32_COEF")
+    #b1_offsetcoef_obs = ncvar_get(fil,"OBSB1_OFFSETCOEF")
+    #albedo_2_M_coef_obs = ncvar_get(fil,"OBSALBEDO_2_M_COEF")
+    #albedo_2_H_coef_obs = ncvar_get(fil,"OBSALBEDO_2_H_COEF")
+    #dp_cld_coef = ncvar_get(fil,"OBSDP_CLD_COEF")
+    land_H_offset = ncvar_get(fil,"OBSLANDHBIAS")
+    land_M_offset = ncvar_get(fil,"OBSLANDMBIAS")
+    }
+
+    #oceanbias_obs = c(0,rnorm(199,0,0.5))
+    s32coef_obs = c(0,rnorm(199,0,0.0001))
+    b1_offsetcoef_obs = c(0,rnorm(199,0,0.0001))
+    albedo_2_M_coef_obs = c(0,rnorm(199,0,0.0001))
+    albedo_2_H_coef_obs = c(0,rnorm(199,0,0.0001))
+    dp_cld_coef = c(0,rnorm(199,0,0.0001))
+
+    #land_H_offset = c(0.25,rnorm(199,0.25,0.0001))
+    #land_M_offset = c(0.35,rnorm(199,0.35,0.0001))
+    #oceanbias_obs = c(1,rnorm(199,1,0.0001))
+
+    #s32coef_obs = c(43,rnorm(199,43,0.0001))
+    #b1_offsetcoef_obs = c(-0.61,rnorm(199,-0.61,0.0001))
+    #albedo_2_M_coef_obs = c(5.4,rnorm(199,5.4,0.0001))
+    #albedo_2_H_coef_obs = c(10,rnorm(199,10,0.0001))
+    #dp_cld_coef = c(-0.08,rnorm(199,-0.08,0.0001))
+ #}
+
+ #if(estimate_land_ocean_bias)
+ #{
+    #landbias_obs = ncvar_get(fil,"OBSLANDBIAS")
+    #oceanbias_obs = ncvar_get(fil,"OBSOCEANBIAS")
+    #landbias_obs = c(0,rnorm(199,0,0.25))
+    #oceanbias_obs = c(0,rnorm(199,0,0.25))
+    #land_H_offset = landbias_obs
+    #land_M_offset = landbias_obs
  }
 
  nc_close(fil)
@@ -80,10 +130,22 @@ if(class(betas_file)=="character")
  #-- BETA vectorized, GPP FIRST!!
  betas_vect = rbind(betas_vect_gpp,betas_vect_resp,betas_vect_ocean)
 
+ #if(estimate_land_ocean_bias)
+ #{
+ #   #betas_vect = rbind(betas_vect,landbias_obs,oceanbias_obs,s32coef_obs,b1_offsetcoef_obs,albedo_2coef_obs)
+ #   betas_vect = rbind(betas_vect,oceanbias_obs,landbias_obs)
+ #}
+
  if(estimate_land_ocean_bias)
  {
-    betas_vect = rbind(betas_vect,landbias_obs,oceanbias_obs)
+    #betas_vect = rbind(betas_vect,landbias_obs,oceanbias_obs,s32coef_obs,b1_offsetcoef_obs,albedo_2coef_obs)
+    betas_vect = rbind(betas_vect,land_H_offset,land_M_offset,oceanbias_obs,s32coef_obs,b1_offsetcoef_obs,
+                       albedo_2_H_coef_obs,albedo_2_M_coef_obs,dp_cld_coef)
  }
+
+ #***** WATCH OUT**********
+ #betas_vect[15832:15834,1] = c(0,34,0.5)
+ #*************************
 
  rm(betas_gpp)
  rm(betas_resp)
@@ -103,12 +165,52 @@ if(class(betas_file)=="matrix")
 
 if(estimate_land_ocean_bias)
 {
- out[landmask,] = out[landmask,] + matrix(rep(betas_vect[15830,],sum(landmask)),
-                                  nrow=sum(landmask),byrow=TRUE) 
+ #subsetter = rep(TRUE,dim(out)[1])
+ #if(!is.null(breaks)){subsetter[ ! (1:(dim(out)[1]) %in% breaks) ] = FALSE }
 
- out[!landmask,] = out[!landmask,] + matrix(rep(betas_vect[15831,],sum(!landmask)),
-                                  nrow=sum(!landmask),byrow=TRUE) 
+ #landmask = fulldat$landmask
+
+ L_h_ind = landmask & fulldat$gain=="H" 
+ L_m_ind = landmask & fulldat$gain=="M" 
+ O_ind = !landmask 
+
+ out[L_h_ind,] = out[L_h_ind,] + matrix(rep(betas_vect[15830,],sum(L_h_ind)),
+                                  nrow=sum(L_h_ind),byrow=TRUE) 
+
+ out[L_m_ind,] = out[L_m_ind,] + matrix(rep(betas_vect[15831,],sum(L_m_ind)),
+                                  nrow=sum(L_m_ind),byrow=TRUE)
+
+ out[O_ind,] = out[O_ind,] + matrix(rep(betas_vect[15832,],sum(O_ind)),
+                                  nrow=sum(O_ind),byrow=TRUE) 
+
+ out[O_ind,] = out[O_ind,] + ( (fulldat$s32-0.61) %o%  betas_vect[15833,] )[O_ind,]
+
+ out[O_ind,] = out[O_ind,] + ( (fulldat$b1offset+1) %o%  betas_vect[15834,] )[O_ind,]
+
+ #out[!landmask,] = out[!landmask,] + ( (fulldat$albedo_2 - mean(fulldat$albedo_2) )  %o%  betas_vect[15834,] )[!landmask,]
+ #out[!landmask,] = out[!landmask,] + ( (fulldat$albedo_2 )  %o%  betas_vect[15834,] )[!landmask,]
+
+ out[L_h_ind,] = out[L_h_ind,] + ( (sapply(fulldat$albedo_2,FUN=min,0.35) - 0.28) %o%  betas_vect[15835,] )[L_h_ind,]
+
+ out[L_m_ind,] = out[L_m_ind,] + ( (fulldat$albedo_2 - 0.35) %o%  betas_vect[15836,] )[L_m_ind,]
+
+ out[L_h_ind,] = out[L_h_ind,] + ( (fulldat$dp_cld +0.75) %o%  betas_vect[15837,] )[L_h_ind,]
+ 
 }
+
+#if(estimate_land_ocean_bias)
+#{
+#  #landmask = fulldat$landmask
+
+#  O_ind = !landmask
+#
+#  out[O_ind,] = out[O_ind,] + matrix(rep(betas_vect[15830,],sum(O_ind)),
+#                                  nrow=sum(O_ind),byrow=TRUE)
+#
+#  out[!O_ind,] = out[!O_ind,] + matrix(rep(betas_vect[15831,],sum(!O_ind)),
+#                                  nrow=sum(!O_ind),byrow=TRUE)  
+#  
+#}
 
 ###################################################################
 #-- EnKF equations, Tippett et al 2003, "direct method"
@@ -148,8 +250,13 @@ A =  1/sqrt(nens-1)*(betas_vect[,2:nens] - betas_vect[,1])
 
 HA = 1/sqrt(nens-1) * apply(out[obs_ind,2:nens],2,FUN=function(x){x - out[obs_ind,1]})
 
+
 #HA[fulldat$landmask,] = HA[fulldat$landmask,] + matrix(rep(bb[-1,1],sum(fulldat$landmask)),ncol=length(bb[-1,1]),byrow=TRUE)
 #HA[fulldat$landmask==0,] = HA[fulldat$landmask==0,] + matrix(rep(bb[-1,2],sum(fulldat$landmask==0)),ncol=length(bb[-1,2]),byrow=TRUE)
+
+#-- THIS IS TEST FOR SUB TIMESTEPS!!!!!!!
+
+#HA = HA*1/sqrt(R_scaling)
 
 #-- Provide subset of obs to calc chi-sq stats on
 
@@ -165,8 +272,12 @@ if(sum(obs_ind_sq)>1000)
 	
 alpha = optimize(f=chi_sq_fun,interval=c(0,100),tol=0.01,obs_ind_sq=obs_ind_sq)$minimum
 
+print(paste("adjusting R via chi square optimization by :",alpha))
+print(paste("scaling R by:",R_scaling))
+
 #-- We just adjust Rinv because nothing else is currently being used (R related), past this pt
-Rinv = alpha^-1 * Rinv
+#-- Deweighting 
+Rinv = R_scaling^-1*alpha^-1 * Rinv
 
 #-- Create diagnostic infl matrix
 S0 = diag(Rinv) * apply(HA,1,FUN=function(x){sum(x^2)})
@@ -245,9 +356,14 @@ Tmat = mat.sqrt(TTmat)
 #Tmat2 = chol(TTmat)
 
 
+Kgain = A %*% t(HA) %*% Sinv2
+
+#S1 = Kgain[15830:15837,]
+S1 = Kgain
+
 #-- Calc posterior mean, ENS0001 is always the mean/prior 
 #X_postmean = betas_vect[,1] + A %*% t(HA) %*% Sinv2 %*% as.matrix(  out[obs_ind,nens+1]  - out[obs_ind,1])
-X_postmean = betas_vect[,1] + A %*% t(HA) %*% Sinv2 %*% as.matrix(  obs_vector[obs_ind]  - out[obs_ind,1])
+X_postmean = betas_vect[,1] + Kgain %*% as.matrix(  obs_vector[obs_ind]  - out[obs_ind,1])
 
 #-- For NOAA in situ
 #X_postmean = betas_vect[,1] + 1/198*A %*% t(HA) %*% solve(P) %*% as.matrix( ( out$PSEUDO[obs_ind] + rnormpert ) - out[obs_ind,4])
@@ -256,6 +372,12 @@ X_postmean = betas_vect[,1] + A %*% t(HA) %*% Sinv2 %*% as.matrix(  obs_vector[o
 #-- also, we need to be very careful about sqrt() scalar in front
 #-- which removes "normalization" in definition of A
 X_postsd = sqrt(nens-1) * A %*% Tmat
+
+#--  Try centering the residuals
+#X_postsd = t(apply(X_postsd,1,FUN=function(x){x - mean(x)}))
+
+#-- Try using mean of residuals instead of calc mean
+#X_postmean = betas_vect[,1] + apply(X_postsd,1,FUN=function(x){mean(x)})
 
 #-- Create posterior ensemble
 X_post = cbind(X_postmean,matrix(rep(X_postmean,nens-1),ncol=nens-1,byrow=F) + X_postsd)
@@ -583,5 +705,5 @@ if(method==4)
 	part5 = part4 %*% tHA
 }
 
-return(list(X_post=X_post,S0=S0))
+return(list(X_post=X_post,S0=S0,S1=S1))
 }

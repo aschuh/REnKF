@@ -96,7 +96,8 @@ merge_ens_ascends_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=
 		    	}else{indx = indx - 1}
 		    }
 		   err.adj = sqrt(count) * enstmpdat$ERROR
-                 }
+                   coords = enstmpdat[,c("LAT","LON")]
+                  }
 		  
 		 else{
 		 	   fullensdat[,i] = enstmpdat$TRA_001
@@ -113,7 +114,7 @@ merge_ens_ascends_data = function(ensemble.dir=NULL,model.res_x=2.5,model.res_y=
 	#	 }
 	#	 fullensdat= cbind(fullensdat,enstmpdat$TRA_001)
    
-   return.data = list(fullensdat=fullensdat,err = err.adj,obs=obs)
+   return.data = list(fullensdat=fullensdat,coords=coords,err = err.adj,obs=obs)
    return(return.data)
    
    }

@@ -35,7 +35,7 @@
  inflation.factor = 1.1
  startdate = as.POSIXlt(strptime('2008-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
  startdate$isdst = 0
-
+ estimate_land_ocean_bias = FALSE
  args = commandArgs(TRUE)
 
  print(args)
@@ -51,27 +51,31 @@
  }
 
  #-- User directories
- run_dir = "/discover/nobackup/aschuh/run.v9-02_test"
- outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/v9.2_test"
- input_geos_file = paste(run_dir,"/input.geos",sep="")
+ run_dir_4x5 = "/discover/nobackup/aschuh/run.v9-02_test_4x5/"
+ run_dir_2x2.5 = "/discover/nobackup/aschuh/run.v9-02_test_2x25/"
+ outdir_4x5 = "/discover/nobackup/aschuh/GEOS-CHEM_output/v9.2_test_4x5"
+ outdir_2x2.5 = "/discover/nobackup/aschuh/GEOS-CHEM_output/v9.2_test_2x25"
+ input_geos_file_4x5 = paste(run_dir_4x5,"/input.geos",sep="")
+ input_geos_file_2x2.5 = paste(run_dir_2x2.5,"/input.geos",sep="")
  orig_betas_file_2x2.5 = "/discover/nobackup/aschuh/data/betas/betas.041514_2x2.5.nc"
  orig_betas_file_4x5 = "/discover/nobackup/aschuh/data/betas/betas.041514_4x5.nc"
 
 
  #-- Set working directory and sun grid eng. options
- setwd(paste(run_dir,"../run/ENSCODE",sep=""))
+ setwd(paste(run_dir_4x5,"../run/ENSCODE",sep=""))
 
  #-- Necessary code
  source("merge_ens_data.R")
- source("optimize_betas.R")
- source("output2ncdf.R")
+ source("optimize_betas_new.R")
+ source("output2ncdf_lag.R")
  source("utils.R")
  source("create_noaa_data.R")
  source("create_prior.R")
  #source("jobscript.NASA.pbs.R")
 
  #-- Checking outdir against a few lines in input.geos which MUST match
- geos_inputfile_check(input_geos_file,outdir,prop_model)
+ geos_inputfile_check(input_geos_file_4x5,outdir_4x5,prop_model)
+ geos_inputfile_check(input_geos_file_2x2.5,outdir_2x2.5,prop_model)
 
  if(que_soft=="sge"){sge.options(sge.use.cluster=TRUE,sge.save.global=TRUE,sge.remove.ﬁles=FALSE)}
 
@@ -86,15 +90,34 @@
  #            " ",orig_betas_file," -o ",outdir,"/betas/betas_cycle_prior_000.nc",sep=""))
 
 
- system(paste("cp ",outdir,"/betas/betas_cycle_prior_000.nc ",outdir,"/betas/betas_cycle_post_000.nc",sep=""))
+ #system(paste("cp ",outdir,"/betas/betas_cycle_prior_000.nc ",outdir,"/betas/betas_cycle_post_000.nc",sep=""))
 
+ #-- THIS PART MAKES NEW PBS_NODEFILE W/O HEAD NODE so that GEOS doesn't run on "this" node running R
+
+     #system(paste("grep -v ",Sys.getenv('SLURM_STEP_NODELIST')," ",Sys.getenv('PBS_NODEFILE')," > temp && mv temp ",Sys.getenv('PBS_NODEFILE'),'.mod',sep=""))
+
+     #Sys.setenv(PBS_NODEFILE_MOD = paste(Sys.getenv('PBS_NODEFILE'),'.mod',sep="") )
+
+    Sys.getenv('HOST')
+
+    system(paste("sed -i '/",Sys.getenv('HOST'),"/d' ",Sys.getenv('PBS_NODEFILE'),sep="")) 
+
+    print(paste("Head node process running on ... ",Sys.getenv('HOST')))
+
+    print(paste("running pods.sh on :"))
+
+    system(paste("cat ",Sys.getenv('PBS_NODEFILE')))
 
  #-- *Need to check that output directories are there
  #--  We should check for existence of output files now*
 
  for(i in startcycle:endcycle)
  {
-     #-- Adjust ensemble start date to cycle start date
+     print(paste("Garbage collection:"))
+     gc()
+     objects() 
+
+    #-- Adjust ensemble start date to cycle start date
 
      #rundate = as.POSIXlt(startdate + 3600*24*(cycles[i]-1)*cycle_length)
      rundate = as.POSIXlt(startdate + 3600*24*((cycles[i]-1)*cycle_length))
@@ -105,23 +128,29 @@
      rdate_arg_lag = paste( rundate_lag$year + 1900, pad(rundate_lag$mon+1,width=2,fill="0"),
  	                          pad(rundate_lag$mday, width=2, fill="0"),sep="")
 
+
      prior_betas_tminus1_file = list()
      post_betas_tminus1_file = list()
      post_betas_t_file = list()     
 
      for(r in 1:(lag_cycle_length+1))
-       { 
-         prior_betas_tminus1_file[[r]] = paste(outdir,"/betas/betas_cycle_prior_",pad(r,width=3,fill="0"),
+       {
+         if(r==6){od = outdir_2x2.5}else{od=outdir_4x5}
+ 
+         prior_betas_tminus1_file[[r]] = paste(od,"/betas/betas_cycle_prior_",pad(r,width=3,fill="0"),
                    "_",pad(cycles[i]-1,width=3,fill="0"),".nc",sep="")
                    
-         post_betas_tminus1_file[[r]] =  paste(outdir,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),
+         post_betas_tminus1_file[[r]] =  paste(od,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),
                    "_",pad(cycles[i]-1,width=3,fill="0"),".nc",sep="")
                    
-         post_betas_t_file[[r]] =  paste(outdir,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),
+         post_betas_t_file[[r]] =  paste(od,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),
                    "_",pad(cycles[i],width=3,fill="0"),".nc",sep="")
                    
        }
-       
+     
+     post_betas_t_file_regrid = paste(outdir_4x5,"/betas/betas_cycle_post_regrid_",pad(6,width=3,fill="0"),
+                   "_",pad(cycles[i],width=3,fill="0"),".nc",sep="")
+  
      #-- HERE IS WHERE WE NEED CDO CALL TO CREATE betas_cycle_prior_00X.nc file (X=cycles[i]-1)
      #-- as function of (X-1) and (X-2) files, (betas_000 + betas_(X-1) + betas+(X-2) ) / 3
      #-- Try to create in same ../betas folder if possible.  Final output betas should still
@@ -135,17 +164,41 @@
        #ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="",collapse=" ")
        #system(paste("ncea ",ifiles," ",prior_betas_tminus1_file,sep=""))
 
-       vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
+       #vv = sapply(c(0,max(0,cycles[i]-1):(cycles[i]-1)),pad,width=3,fill="0")
+       vv_lag = sapply(c(max(0,cycles[i]-1)),pad,width=3,fill="0")
+       vv_first = sapply(c(0,max(0,cycles[i]-1):(cycles[i]-1)),pad,width=3,fill="0")
+
        ifiles=list()
        pr_ind = list()
-       
+
        for(r in 1:(lag_cycle_length+1))
        {
-       	 if(r==(lag_cycle_length+1)){bfile=orig_betas_file_2x2.5}else{bfile=orig_betas_file_4x5}
-       	 ifiles[[r]] = paste(outdir,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),"_",vv,".nc",sep="")
-         pr_ind[[r]] = vv == "000"
-         ifiles[[r]][pr_ind[[r]]] = bfile
+       	 if(r==(lag_cycle_length+1))
+       	    {
+              bfile=orig_betas_file_2x2.5
+              outdir_tmp = outdir_2x2.5
+              ifiles[[r]] = paste(outdir_tmp,"/betas/betas_cycle_post_",pad(r,width=3,fill="0"),"_",vv_first,".nc",sep="")
+              pr_ind[[r]] = vv_first == "000"
+              ifiles[[r]][pr_ind[[r]]] = bfile
+            }
+       	 if(r==lag_cycle_length)
+       	    {
+              bfile=orig_betas_file_4x5
+              outdir_tmp = outdir_4x5
+              ifiles[[r]] = paste(outdir_tmp,"/betas/betas_cycle_post_regrid_",pad(r+1,width=3,fill="0"),"_",vv_lag,".nc",sep="")
+              pr_ind[[r]] = vv_lag == "000"
+              ifiles[[r]][pr_ind[[r]]] = bfile
+            }            
+         if(r!=lag_cycle_length & r!=(lag_cycle_length+1))
+         {
+         	bfile=orig_betas_file_4x5
+            outdir_tmp = outdir_4x5
+       	    ifiles[[r]] = paste(outdir_tmp,"/betas/betas_cycle_post_",pad(r+1,width=3,fill="0"),"_",vv_lag,".nc",sep="")
+            pr_ind[[r]] = vv_lag == "000"
+            ifiles[[r]][pr_ind[[r]]] = bfile   	
+         }
        }
+
        
        
        #for(k in 1:length(ifiles))
@@ -288,6 +341,9 @@
       print(paste("Working on cycle",i))
 
       print(paste("running stuff like: ./geos ",1," ",cycles[i]," ",
+                                rdate_arg_lag," ",cycle_length*lag_cycle_length," 0",sep=""))
+
+      print(paste("running stuff like: ./geos ",1," ",cycles[i]," ",
                                 rdate_arg," ",cycle_length," 0",sep=""))
 
 
@@ -347,24 +403,66 @@
          #working_dir = "/discover/nobackup/aschuh/run"
          reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir_noaa"
 
+    #-- Begin working on 4x5 part of the transport
+
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
          }
 
          system(paste("mkdir ",reg.folder,sep=""))
-
-         system(paste("ln -s ",run_dir,"/geos ",reg.folder,"/geos",sep=""))
-
-         system(paste("cp ",run_dir,"/input.geos ",reg.folder,"/input.geos",sep=""))
+         system(paste("ln -s ",run_dir_4x5,"/geos ",reg.folder,"/geos",sep=""))
+         system(paste("cp ",run_dir_4x5,"/input.geos ",reg.folder,"/input.geos",sep=""))
 
          con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
 
          for(k in 1:ensembles)
           {
-          	
-          	
-           writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
+             writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
                                rdate_arg_lag," ",cycle_length*lag_cycle_length," 0 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+          }
+
+         close(con)
+
+         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 6")
+
+         #stop("forced stop")
+         
+    #-- This part interpolates the 3D CO2 field to 2x2.5
+
+         con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
+
+         for(k in 1:ensembles)
+          {
+             ens_lab = pad(k,width=4,fill="0")
+             writeLines(paste("/discover/nobackup/aschuh/R-3.0.1/bin/Rscript ",run_dir_4x5,"../run/ENSCODE/interp_restart_wargs.R  ",
+                    run_dir_4x5,"../run/ENSCODE ",
+                    outdir_4x5,"/CO2/ts_1h_avg.",rdate_arg,"00.",ens_lab,".h5.nc ",
+                    outdir_2x2.5,"/CO2/ts_1h_avg.",rdate_arg,"00.",ens_lab,".h5.nc ",
+                    " >& ",reg.folder,"/outfile.",k,sep=""),con=con)
+          }
+
+         close(con)
+
+         #stop("forced stop")
+
+         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 6")
+         #stop("forced stop")
+    #-- This part runs the model for another cycle at 2x2.5
+
+         if(file.exists(reg.folder)){
+          system(paste("rm -rf ",reg.folder,sep=""))
+         }
+
+         system(paste("mkdir ",reg.folder,sep=""))
+         system(paste("ln -s ",run_dir_2x2.5,"/geos ",reg.folder,"/geos",sep=""))
+         system(paste("cp ",run_dir_2x2.5,"/input.geos ",reg.folder,"/input.geos",sep=""))
+
+         con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
+
+         for(k in 1:ensembles)
+          {
+             writeLines(paste("./geos ",k," ",cycles[i]," 6 ",
+                               rdate_arg," ",cycle_length," 0 > ",reg.folder,"/outfile.",k,sep=""),con=con)
           }
 
          close(con)
@@ -462,7 +560,7 @@
                                                 min.time=noaa_start_date,
                                                 max.time=noaa_end_date)
 
-         fulldat = merge_ens_data(observation.matrix,ensemble.dir=paste(outdir,"/stations/",sep=""))
+         fulldat = merge_ens_data(observation.matrix,ensemble.dir=paste(outdir_2x2.5,"/stations/",sep=""),date=rdate_arg)
 
          fulldat$obs = fulldat$obs * 10^6  # converts to ppm
 
@@ -498,10 +596,11 @@
           {
           	ret = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=fulldat$err^2,
           	ens_matrix=fulldat$fullensdat,obs_vector=fulldat$obs,method=2,
-          	localize=TRUE,diags=TRUE)
+          	localize=FALSE,diags=TRUE)
           }
 
          X_post = ret$X_post
+         rm(ret)
 
          #-- Inflate variance of ensemble for "mean propagation" case
          if(prop_model %in% c('pure','ct') )
@@ -510,8 +609,15 @@
          }
          #-- Output the betas to netcdf for next cycle
          print("outputting new betas ...")
-         output2ncdf(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
-                       pad(cycles[i],width=3,fill="0"),".nc",sep=""),output_biases=FALSE)
+         #output2ncdf(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
+         #              pad(cycles[i],width=3,fill="0"),".nc",sep=""),output_biases=FALSE)
+
+         output2ncdf(betas=X_post,fileout=post_betas_t_file,output_biases=FALSE)
+
+         #-- Regrid 2x25 betas to 4x5
+
+         regrid_2x25_betas(post_betas_t_file[[6]],
+                           post_betas_t_file_regrid,x_res_out=5,y_res_out=4)
 
          #-- Create diagnostics
          #diags(X_post)
@@ -531,30 +637,110 @@
        {
 
  #working_dir = "/discover/nobackup/aschuh/run"
+         #reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir_noaa"
+
+         #if(file.exists(reg.folder)){
+         # system(paste("rm -rf ",reg.folder,sep=""))
+         #}
+
+         #system(paste("mkdir ",reg.folder,sep=""))
+
+         #system(paste("ln -s ",run_dir,"/geos ",reg.folder,"/geos",sep=""))
+
+         #system(paste("cp ",run_dir,"/input.geos ",reg.folder,"/input.geos",sep=""))
+
+         #con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
+
+         # for(k in ((j-1)*block.size+1):(min(j*block.size,ensembles) ) )
+         #for(k in 1:1)
+         # {
+         #  writeLines(paste("./geos ",k," ",cycles[i]," ",
+         #                      rdate_arg," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+         # }
+
+         #close(con)
+
+         #system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 1")
+
+
+         #working_dir = "/discover/nobackup/aschuh/run"
          reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir_noaa"
+
+    #-- Begin working on 4x5 part of the transport
+     
+       #-- Run the first two weeks and save CO2 field
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
          }
 
          system(paste("mkdir ",reg.folder,sep=""))
-
-         system(paste("ln -s ",run_dir,"/geos ",reg.folder,"/geos",sep=""))
-
-         system(paste("cp ",run_dir,"/input.geos ",reg.folder,"/input.geos",sep=""))
+         system(paste("ln -s ",run_dir_4x5,"/geos ",reg.folder,"/geos",sep=""))
+         system(paste("cp ",run_dir_4x5,"/input.geos ",reg.folder,"/input.geos",sep=""))
 
          con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
 
-         # for(k in ((j-1)*block.size+1):(min(j*block.size,ensembles) ) )
          for(k in 1:1)
           {
-           writeLines(paste("./geos ",k," ",cycles[i]," ",
-                               rdate_arg," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+             #writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
+             #                  rdate_arg_lag," ",cycle_length*lag_cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+             writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
+                               rdate_arg_lag," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
           }
 
          close(con)
 
          system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 1")
+
+         #stop("forced stop")
+
+    ########################################
+    #-   FOR NOW I'M NOT SURE I NEED BELOW
+    ########################################
+
+    #-- This part interpolates the 3D CO2 field to 2x2.5
+
+         #con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
+
+         #for(k in 1:1)
+         # {
+         #    ens_lab = pad(k,width=4,fill="0")
+         #    writeLines(paste("/discover/nobackup/aschuh/R-3.0.1/bin/Rscript ",run_dir_4x5,"../run/ENSCODE/interp_restart_wargs.R  ",
+         #           run_dir_4x5,"../run/ENSCODE ",
+         #           outdir_4x5,"/CO2/ts_1h_avg.",rdate_arg,"00.",ens_lab,".h5.nc ",
+         #           outdir_2x2.5,"/CO2/ts_1h_avg.",rdate_arg,"00.",ens_lab,".h5.nc ",
+         #           " >& ",reg.folder,"/outfile.",k,sep=""),con=con)
+         # }
+
+         #close(con)
+
+         #stop("forced stop")
+
+         #system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 1")
+         #stop("forced stop")
+    #-- This part runs the model for another cycle at 2x2.5
+
+         #if(file.exists(reg.folder)){
+         # system(paste("rm -rf ",reg.folder,sep=""))
+         #}
+
+         #system(paste("mkdir ",reg.folder,sep=""))
+         #system(paste("ln -s ",run_dir_2x2.5,"/geos ",reg.folder,"/geos",sep=""))
+         #system(paste("cp ",run_dir_2x2.5,"/input.geos ",reg.folder,"/input.geos",sep=""))
+
+         #con = file(description=paste(reg.folder,"/exec.script",sep=""),open="w")
+
+         #for(k in 1:1)
+         # {
+         #    writeLines(paste("./geos ",k," ",cycles[i]," 6 ",
+         #                      rdate_arg," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+         # }
+
+         #close(con)
+
+         #system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir_noaa/exec.script 1")
+
+         #stop("forced stop")
 
         }
 
@@ -621,59 +807,59 @@
  	#-- because the model assumes that current cycle's
  	#-- data is in this directory, regardless of name.  It simply lists and sorts files.
 
- 	modelfiles = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE)
+ 	#modelfiles = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE)
 
  	#-- We want to keep "FINALRUN" files as well as prior CO2 guesses for each cyle
-     first_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001")
+        #first_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001")
 
-     noremove_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.FINALRUN")
+        #noremove_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.FINALRUN")
 
-     prior_files = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR.nc")
+        #prior_files = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR.nc")
 
-     move_files = first_files[ (!first_files %in% noremove_files) & (!first_files %in% prior_files)]
+        #move_files = first_files[ (!first_files %in% noremove_files) & (!first_files %in% prior_files)]
 
-     if(length(move_files) > 0)
-      {
-                 for(k in 1:length(move_files))
-             {
-                  newfilenm = paste(move_files[k],".PRIOR",sep="")
-                  file.copy(move_files[k],newfilenm)
-                  file.remove(move_files[k])
-              }
-       }
+        #if(length(move_files) > 0)
+        #{
+        #         for(k in 1:length(move_files))
+        #     {
+        #          newfilenm = paste(move_files[k],".PRIOR",sep="")
+        #          file.copy(move_files[k],newfilenm)
+        #          file.remove(move_files[k])
+        #      }
+        #}
 
-     remove_files = modelfiles[!modelfiles %in% first_files]
+        #remove_files = modelfiles[!modelfiles %in% first_files]
 
-     file.remove(remove_files)
+        #file.remove(remove_files)
 
      #############################################
      #-- Same for surface "STATIONS" files
      #############################################
 
-     modelfiles = list.files(paste(outdir,"/stations/",sep=""),full.names=TRUE)
+     #modelfiles = list.files(paste(outdir_2x2.5,"/stations/",sep=""),full.names=TRUE)
 
      #-- We want to keep "FINALRUN" files as well as prior CO2 guesses for each cyle
-     first_files  = list.files(paste(outdir,"/stations/",sep=""),full.names=TRUE,pattern="ens.0001")
+     #first_files  = list.files(paste(outdir_2x2.5,"/stations/",sep=""),full.names=TRUE,pattern="ens.0001")
 
-     noremove_files  = list.files(paste(outdir,"/stations/",sep=""),full.names=TRUE,pattern="FINALRUN.ens.0001")
+     #noremove_files  = list.files(paste(outdir_2x2.5,"/stations/",sep=""),full.names=TRUE,pattern="FINALRUN.ens.0001")
 
-     prior_files = list.files(paste(outdir,"/stations/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR")
+     #prior_files = list.files(paste(outdir_2x2.5,"/stations/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR")
 
-     move_files = first_files[ (!first_files %in% noremove_files) & (!first_files %in% prior_files)]
+     #move_files = first_files[ (!first_files %in% noremove_files) & (!first_files %in% prior_files)]
 
-     if(length(move_files) > 0)
-      {
-                 for(k in 1:length(move_files))
-             {
-                  newfilenm = gsub(".nc",".PRIOR.nc",move_files[k])
-                  file.copy(move_files[k],newfilenm)
-                  file.remove(move_files[k])
-              }
-       }
+     #if(length(move_files) > 0)
+     # {
+     #            for(k in 1:length(move_files))
+     #        {
+     #             newfilenm = gsub(".nc",".PRIOR.nc",move_files[k])
+     #             file.copy(move_files[k],newfilenm)
+     #             file.remove(move_files[k])
+     #         }
+     #  }
 
-     remove_files = modelfiles[!modelfiles %in% first_files]
+     #remove_files = modelfiles[!modelfiles %in% first_files]
 
-     file.remove(remove_files)
+     #file.remove(remove_files)
 
 
  }

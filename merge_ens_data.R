@@ -4,7 +4,7 @@
 #-- Test args
 #-- ensemble.dir = "~/Desktop/tobedeleted/cycle1/"
 #-- observation.matrix=output
-merge_ens_data = function(observation.matrix,ensemble.dir=NULL,evaluate.final=FALSE)
+merge_ens_data = function(observation.matrix,ensemble.dir=NULL,date=NULL,evaluate.final=FALSE)
 {
 
 		#-- This is where I need to pull in extra info on tower locations, grid-wise,
@@ -31,13 +31,13 @@ merge_ens_data = function(observation.matrix,ensemble.dir=NULL,evaluate.final=FA
    #fls = sort(list.files(ensemble.dir,full.names=TRUE,pattern="ens"))
    #fls.short = sort(list.files(ensemble.dir,full.names=FALSE,pattern="ens"))
 
-   fls.model           = sort(list.files(ensemble.dir,full.names=TRUE))
+   fls.model           = sort(list.files(ensemble.dir,full.names=TRUE,pattern=date))
    fls.finalrun.model  = list.files(ensemble.dir,full.names=TRUE,pattern="FINALRUN")
    fls.priors.model  = list.files(ensemble.dir,full.names=TRUE,pattern="PRIOR")
    if(evaluate.final){fls.exc = fls.priors.model}else{fls.exc = c(fls.finalrun.model,fls.priors.model)}
    fls.model = fls.model[!(fls.model %in% fls.exc)]
   
-   fls.short.model     = sort(list.files(ensemble.dir,full.names=FALSE))
+   fls.short.model     = sort(list.files(ensemble.dir,full.names=FALSE,pattern=date))
    fls.short.finalrun.model  = list.files(ensemble.dir,full.names=FALSE,pattern="FINALRUN") 
    fls.short.priors.model  = list.files(ensemble.dir,full.names=FALSE,pattern="PRIOR")
    if(evaluate.final){fls.short.exc = fls.short.priors.model}else{

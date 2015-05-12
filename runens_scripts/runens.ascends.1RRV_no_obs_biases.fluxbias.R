@@ -19,15 +19,15 @@ require(plyr)
 #-- Use options
 ensembles = 200
 cycle_length = 14
-cycles = 1:78
+cycles = 1:26
 startcycle = cycles[1]
 endcycle = cycles[length(cycles)]
-inflation.factor = 1.15
+inflation.factor = 1.05
 #startdate = as.POSIXlt(strptime('2009-06-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
-startdate = as.POSIXlt(strptime('2010-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
+startdate = as.POSIXlt(strptime('2007-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
 startdate$isdst = 0
-estimate_land_ocean_bias = TRUE
-
+estimate_land_ocean_bias = FALSE
+pods_numb = 8
 
 #-- Command line args
 args = commandArgs(TRUE)
@@ -45,21 +45,19 @@ print(args)
 }
 
 #-- User directories
-run_dir = "/discover/nobackup/aschuh/run.ncdf4.test/"
-outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/ncdf4.test"
-#run_dir = "/discover/nobackup/aschuh/run.landoceanbias_andfluxbias_test2/"
-#outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/obsbias_plus_fluxbias_TEST2"
+#run_dir = "/discover/nobackup/aschuh/run.ascends.1RRV_no_obs_biases.fluxbias/"
+#outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/ascends.1RRV_no_obs_biases.fluxbias"
+run_dir = "/discover/nobackup/aschuh/run.v9-02_geosfp_2x25/" 
+outdir = "/discover/nobackup/aschuh/GEOS-CHEM_output/v9.2_geosfp_2x25"
 input_geos_file = paste(run_dir,"/input.geos",sep="")
-orig_betas_file = "/discover/nobackup/aschuh/data/betas/betas.112613_wbiases.nc"
-#orig_betas_file = "/discover/nobackup/aschuh/data/betas/betas.061213.nc"
+orig_betas_file = "/discover/nobackup/aschuh/data/betas/betas.061213.nc"
 
 #-- Set working directory and sun grid eng. options
 setwd(paste(run_dir,"../run/ENSCODE",sep=""))
 
 #-- Necessary code
 source("merge_ens_gosat_ncdf_data.R")
-#source("merge_ens_gosat_data.R")
-source("optimize_betas_gosat.R")
+source("optimize_betas_test.R")
 source("output2ncdf.R")
 source("utils.R")
 source("create_noaa_data.R")
@@ -73,6 +71,21 @@ if(que_soft=="sge"){sge.options(sge.use.cluster=TRUE,sge.save.global=TRUE,sge.re
 
 #system(paste("cp ",outdir,"/betas/betas_cycle_prior_000.nc ",outdir,"/betas/betas_cycle_post_000.nc",sep=""))
 
+ #-- THIS PART MAKES NEW PBS_NODEFILE W/O HEAD NODE so that GEOS doesn't run on "this" node running R
+
+    Sys.getenv('HOST')
+
+    Sys.getenv()
+
+    #system(paste("sed -i '/",Sys.getenv('HOSTNAME'),"/d' /discover/nobackup/aschuh/reg_folders/node_file",sep=""))
+   system(paste("sed -i '/",Sys.getenv('HOSTNAME'),"/d' ",Sys.getenv('PBS_NODEFILE'),sep=""))
+
+    print(paste("Head node process running on ... ",Sys.getenv('HOSTNAME')))
+
+    print(paste("running pods.sh on :"))
+
+    #system("cat /discover/nobackup/aschuh/reg_folders/node_file")
+    system(paste("cat ",Sys.getenv('PBS_NODEFILE')))
 
 #-- *Need to check that output directories are there
 #--  We should check for existence of output files now*
@@ -110,38 +123,23 @@ for(i in startcycle:endcycle)
          #ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
 
          vv = sapply(c(0,max(0,cycles[i]-2):(cycles[i]-1)),pad,width=3,fill="0")
+         #vv = sapply(c(max(0,cycles[i]-1)),pad,width=3,fill="0")
          ifiles = paste(outdir,"/betas/betas_cycle_post_",vv,".nc",sep="")
          pr_ind = vv == "000"
          ifiles[pr_ind] = orig_betas_file
 
-         # This select last prior file
-         ifiles = ifiles[length(pr_ind)]
-         pr_ind = pr_ind[length(pr_ind)]
 
          if(estimate_land_ocean_bias)
          {
         	ret2 = create_prior_landoceanbias(ifiles=ifiles[length(ifiles)],pr_ind=pr_ind[length(ifiles)],ensembles=ensembles) 
-        	#filf = nc_open(ifiles[length(ifiles)])
-                #ret2 = list(OBSLANDBIAS=ncvar_get(filf,"OBSLANDBIAS"),OBSOCEANBIAS=ncvar_get(filf,"OBSOCEANBIAS"))                
-                #if(dim(ret2$OBSLANDBIAS)>200){ret2$OBSLANDBIAS=ret2$OBSLANDBIAS[sample(1:1000,200)];ret2$OBSOCEANBIAS=ret2$OBSOCEANBIAS[sample(1:1000,200)]}
-                #nc_close(filf)
-                ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
+        	ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
         	write_new_priors_nc(BETAOCEAN=ret$BETAOCEAN,BETAGPP=ret$BETAGPP,
         	                    BETARESP=ret$BETARESP,
-        	                    OBSLANDHBIAS=ret2$OBSLANDHBIAS,
-        	                    OBSLANDMBIAS = ret2$OBSLANDMBIAS,
-                                    OBSOCEANBIAS=ret2$OBSOCEANBIAS,
-                                    OBSS32COEF=ret2$OBSS32COEF,
-                                    OBSB1_OFFSETCOEF=ret2$OBSB1_OFFSETCOEF,
-                                    OBSALBEDO_2_H_COEF=ret2$OBSALBEDO_2_H_COEF,
-                                    OBSALBEDO_2_M_COEF=ret2$OBSALBEDO_2_M_COEF,
-                                    OBSDP_CLD_COEF=ret2$OBSDP_CLD_COEF,
+        	                    OBSLANDBIAS=ret2$OBSLANDBIAS,
+        	                    OBSOCEANBIAS=ret2$OBSOCEANBIAS,
         	                    fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
-                #write_new_priors_nc2(BETAOCEAN=ret$BETAOCEAN,BETAGPP=ret$BETAGPP,BETARESP=ret$BETARESP,
-                #                     OBSOCEANBIAS=ret2$OBSOCEANBIAS,OBSLANDBIAS=ret2$OBSLANDBIAS,
-                #                     fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
           }else{       	
-       	    ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles)
+       	    ret = create_prior(ifiles=ifiles,pr_ind=pr_ind,ensembles=ensembles,land_prior_scaling=1,ocean_prior_scaling=1)
        	    write_new_priors_nc(BETAOCEAN=ret$BETAOCEAN,BETAGPP=ret$BETAGPP,
        	                        BETARESP=ret$BETARESP,
        	                        fileout=prior_betas_tminus1_file,grid.x=2.5,grid.y=2)
@@ -155,7 +153,7 @@ for(i in startcycle:endcycle)
 
         print(paste("Working on cycle",i))
         
-        print(paste("running stuff like: ./geos ",1," ",cycles[i]," ",
+        print(paste("running stuff like: ./geos ",1," ",cycles[i]," 1 ",
                                rdate_arg," ",cycle_length," 0",sep=""))
 
 
@@ -182,7 +180,7 @@ for(i in startcycle:endcycle)
         if(que_soft=="nasa2"){
 
          #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir41"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -213,7 +211,7 @@ for(i in startcycle:endcycle)
        if(que_soft=="nasa"){
 
          #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir41"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -229,13 +227,13 @@ for(i in startcycle:endcycle)
 
          for(k in 1:ensembles)
           {
-           writeLines(paste("./geos ",k," ",cycles[i]," ",
+           writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
                                rdate_arg," ",cycle_length," 0 > ",reg.folder,"/outfile.",k,sep=""),con=con)
           }
 
          close(con)
 
-         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 6")
+         system(paste("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir41/exec.script ",pods_numb))
 
          #stop("forced stop")
        }
@@ -254,7 +252,7 @@ for(i in startcycle:endcycle)
        #default.resources = list(queue="batch1", walltime="96:00:00")
        library(BatchJobs)
        working_dir = "/discover/nobackup/aschuh/run"
-       reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+       reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir41"
 
        if(file.exists(reg.folder)){
          system(paste("rm -rf ",reg.folder,sep=""))
@@ -310,16 +308,14 @@ for(i in startcycle:endcycle)
                                 njobs=ensembles)
      }
 
-        if(estimate_land_ocean_bias){
-                                      return.landmask.arg = 1
-                                    }else{
-                                      return.landmask.arg = NULL
-                                         }
-
         #-- Pull ensemble data from run         
 	   print("merging data...")
-	   fulldat = merge_ens_gosat_ncdf_data(ensemble.dir=paste(outdir,"/gosat/",sep=""),
-                           return.landmask=estimate_land_ocean_bias)
+	   fulldat = merge_ens_gosat_ncdf_data(ensemble.dir=paste(outdir,"/ascends/",sep=""))
+
+           #a = rnorm(dim(fulldat$fullensdat)[1]*dim(fulldat$fullensdat)[2],mean=0,sd=0.0000000000025)
+           #amat = matrix(a,ncol=ensembles)
+           #fulldat$fullensdat = fulldat$fullensdat + amat
+           #rm(amat)
 
            if(estimate_land_ocean_bias){landmask = fulldat$landmask}else{landmask=NULL}
 	
@@ -330,59 +326,106 @@ for(i in startcycle:endcycle)
 
           #-- Loop over all, chunk by chunk
 
-          if(dim(fulldat$fullensdat)[1]>10000)
-          {
+          #boot.analysis <- function(data,indices){
+          #          print("booting...")
+          #          ret  = optimize_betas(betas_file=betas_arg,
+          #                                Rdiag_vector=fulldat$err[indices],
+          #                               ens_matrix=fulldat$fullensdat[indices,],
+          #                               obs_vector=data[indices],method=2,
+          #                               localize=FALSE,diags=TRUE,
+          #                               estimate_land_ocean_bias=estimate_land_ocean_bias,
+          #                               co2.multiplier=10^6 )
+          #          apply(ret$X_post,1,sd) # select obs. in bootstrap sample
+          #          #mod <- rlm(prestige ~ income + education, data=data, maxit=maxit)
+          #          #coefficients(mod) # return coefficient vector
+          #          }
+
+          # duncan.boot <- boot(fulldat$obs, boot.analysis, 10)
+
+          #if(dim(fulldat$fullensdat)[1]>10000)
+          #{
 
              #-- Watch out for this if it is exactly length 5001
-          	brks = c(seq(1,dim(fulldat$fullensdat)[1],by=5000),dim(fulldat$fullensdat)[1])
-          	for(k in 1:(length(brks)-1))
-          	{
-          	   print(paste("working on obs: ",brks[k]," to ",brks[k+1],sep=""))
-          	   if(k==1){betas_arg = prior_betas_tminus1_file}
-                   err_vec = (2*(1.2*fulldat$err[brks[k]:brks[k+1]]+0.25))^2 
+                #ssample = sample(dim(fulldat$fullensdat)[1])
+          	#brks = c(seq(1,dim(fulldat$fullensdat)[1],by=10000),dim(fulldat$fullensdat)[1])
+                #current_fullHA = fulldat$fullensdat
+
+          	#for(k in 1:(length(brks)-1))
+                #for(k in 1:1)
+          	#{
+          	   #print(paste("working on obs: ",brks[k]," to ",brks[k+1],sep=""))
+                   #sind = (brks[k]):(brks[k+1])
+                   #yet2be_sind = (brks[k+1]+1):(dim(fulldat$fullensdat)[1])
+                   #yet2be_sind = ssample[brks[k+1]:(length(ssample))]
+          	   #if(k==1){
+                              betas_arg = prior_betas_tminus1_file
+                   #        }
+                   #err_vec = (fulldat$err[sind])^2
           	   ret  = optimize_betas(betas_file=betas_arg,
-          	                          Rdiag_vector=err_vec,
-                                         ens_matrix=fulldat$fullensdat[brks[k]:brks[k+1],],
-                                         obs_vector=fulldat$obs[brks[k]:brks[k+1]],method=2,
-                                         localize=FALSE,diags=TRUE,estimate_land_ocean_bias=estimate_land_ocean_bias,
-                                          landmask=landmask[brks[k]:brks[k+1]])
-                  betas_arg = ret$X_post
-                 
-                 if(k==1){
-                   S0_diags = cbind(fulldat$coords[brks[k]:brks[k+1],],ret$S0)
-                        }else{
-                   S0_diags = rbind(S0_diags,cbind(fulldat$coords[brks[k]:brks[k+1],],ret$S0))
-          	 }
-                }
-          }else
-          {
-                #err_vec = (2*(1.2*fulldat$err+0.25))^2
-          	err_vec = (fulldat$err)^2
-                ret = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=err_vec,
-          	                        ens_matrix=fulldat$fullensdat,obs_vector=fulldat$obs,method=2,
-          	                        localize=FALSE,diags=TRUE,estimate_land_ocean_bias=estimate_land_ocean_bias,
-                                        landmask=landmask,test=i)
-                S0_diags = cbind(fulldat$coords,ret$S0)
-                S1_diags = cbind(fulldat$coords,t(ret$S1))
-           }
+          	                          Rdiag_vector=(fulldat$err)^2,
+                                         ens_matrix=fulldat$fullensdat,
+                                         obs_vector=fulldat$obs,method=2,
+                                         localize=FALSE,diags=TRUE,
+                                         estimate_land_ocean_bias=estimate_land_ocean_bias,
+                                         co2.multiplier=1)
+                  #betas_arg = ret$X_post
+                  #current_fullHA = ????
+                  #print("summary of mean betagpp land field")
+                  #print(summary(ret$X_post[1:3557,1]))                  
+
+                  #output2ncdf_old(betas=betas_arg,fileout=paste(outdir,"/betas/betas_cycle_post_", 
+                  #    pad(cycles[i],width=3,fill="0"),"_sub_",k,".nc",sep=""),
+                  #   OBSLANDBIAS=estimate_land_ocean_bias,OBSOCEANBIAS=estimate_land_ocean_bias) 
+
+
+
+                 #if(k==1){
+                 #  S0_diags = cbind(fulldat$coords[brks[k]:brks[k+1],],ret$S0)
+                 #       }else{
+                 # S0_diags = rbind(S0_diags,cbind(fulldat$coords[brks[k]:brks[k+1],],ret$S0))
+          	 #}
+           #     }
+          #}else
+          #{
+          #      err_vec = (fulldat$err)^2
+         # 	ret = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=err_vec,
+         # 	                        ens_matrix=fulldat$fullensdat,obs_vector=fulldat$obs,method=2,
+         # 	                        localize=FALSE,diags=TRUE,estimate_land_ocean_bias=estimate_land_ocean_bias,
+         #                               co2.multiplier=10^6,landmask=landmask,R_scaling=1)
+         #       #S0_diags = cbind(fulldat$coords,ret$S0)
+         #  }
 
         X_post = ret$X_post
 
-        write.table(S0_diags,file=paste(outdir,"/diags/diags_S0_post_",i,sep=""),sep="\t",row.names=FALSE)
-        write.table(S1_diags,file=paste(outdir,"/diags/diags_S1_post_",i,sep=""),sep="\t",row.names=FALSE)
+        #if(diags==TRUE)
+        #    {
+                S0_diags = cbind(fulldat$coords,ret$S0)
+                S1_diags = cbind(fulldat$coords,t(ret$S1))
+                write.table(S0_diags,file=paste(outdir,"/diags/diags_S0_post_",i,sep=""),sep="\t",row.names=FALSE)
+                save(S1_diags,file=paste(outdir,"/diags/diags_S1_post_",i,".rda",sep=""))
+        #    } 
+
+        rm(S0_diags)
+        rm(S1_diags)
+        rm(ret)
+        cleanMem()
+
+        #S0_diags = cbind(fulldat$coords,ret$S0)
+        #write.table(S0_diags,file=paste(outdir,"/diags/diags_post_",i,sep=""),sep="\t",row.names=FALSE)
+
+	#X_post = optimize_betas(betas_file=prior_betas_tminus1_file,Rdiag_vector=(2*(1.2*fulldat$err+0.25))^2,
+	#                 ens_matrix=fulldat$fullensdat,obs_vector=fulldat$obs,method=2,diags=TRUE)
 
         #-- Inflate variance of ensemble for "mean propagation" case
         if(prop_model %in% c('pure','ct') & estimate_land_ocean_bias==TRUE )
         {
           #-- We are inflating the constant obs biases by larger amounts than the other pieces
-          bias_inds = (dim(X_post)[1]-7):(dim(X_post)[1])
-          X_post[-bias_inds,] = (X_post[-bias_inds,] - X_post[-bias_inds,1])*inflation.factor + X_post[-bias_inds,1]
+          bias_inds = (dim(X_post)[1]-1):(dim(X_post)[1])
+    	  X_post[-bias_inds,] = (X_post[-bias_inds,] - X_post[-bias_inds,1])*inflation.factor + X_post[-bias_inds,1]
 
           #-- Here we trying to inflate the sd's back up to about 0.15 while maintaining correlation pattern
-          #bias_inds = c(15830,15831)
-          #inflation.factor_consts = 0.25/mean(sd(X_post[bias_inds[1],]),sd(X_post[bias_inds[2],]))
+          inflation.factor_consts = 0.15/mean(sd(X_post[bias_inds[1],]),sd(X_post[bias_inds[2],]))
 
-          inflation.factor_consts = c(0.15,0.15,0.15,3,0.1,1,1,0.02)/apply(X_post[bias_inds,],1,sd)
           X_post[bias_inds,] = (X_post[bias_inds,] - X_post[bias_inds,1])*inflation.factor_consts + X_post[bias_inds,1]
         }
 
@@ -390,14 +433,12 @@ for(i in startcycle:endcycle)
         {
           X_post = (X_post - X_post[,1])*inflation.factor + X_post[,1]
         }
-
+    	
 	#-- Output the betas to netcdf for next cycle
 	print("outputting new betas ...")
-        #--output2ncdf_old
-	output2ncdf(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
+	output2ncdf_old(betas=X_post,fileout=paste(outdir,"/betas/betas_cycle_post_",
 	              pad(cycles[i],width=3,fill="0"),".nc",sep=""),
-                      output_biases=estimate_land_ocean_bias)
-        #             OBSLANDBIAS=estimate_land_ocean_bias,OBSOCEANBIAS=estimate_land_ocean_bias)
+                     OBSLANDBIAS=estimate_land_ocean_bias,OBSOCEANBIAS=estimate_land_ocean_bias)
 	              
 	#-- Create diagnostics
 	#diags(X_post)
@@ -405,6 +446,7 @@ for(i in startcycle:endcycle)
 	#-- Remove objects
 	rm(fulldat)
 	rm(X_post)	
+        cleanMem()
 
 	#-- Single rerun of mean to get restart CO2 for next cycle
 	print("launching mean beta rerun to generate new CO2 field ....")
@@ -417,7 +459,7 @@ for(i in startcycle:endcycle)
        {
 
  #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir38"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir41"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -434,13 +476,13 @@ for(i in startcycle:endcycle)
          # for(k in ((j-1)*block.size+1):(min(j*block.size,ensembles) ) )
          for(k in 1:1)
           {
-           writeLines(paste("./geos ",k," ",cycles[i]," ",
+           writeLines(paste("./geos ",k," ",cycles[i]," 1 ",
                                rdate_arg," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
           }
 
          close(con)
 
-         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir38/exec.script 1")
+         system("/discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir41/exec.script 1")
 
         }
 
@@ -458,12 +500,12 @@ for(i in startcycle:endcycle)
        #default.resources = list(queue="batch1", walltime="96:00:00")
        library(BatchJobs)
        working_dir = "/home/aschuh/run.noaa"
-       reg.folder = "/home/aschuh/reg_folders/my_job_dir38"
+       reg.folder = "/home/aschuh/reg_folders/my_job_dir41"
 
        if(file.exists(reg.folder)){
          system(paste("rm -rf ",reg.folder,sep=""))
        }
-       reg <- makeRegistry(id="my_reg", seed=123, work.dir=working_dir,file.dir="/home/aschuh/reg_folders/my_job_dir38")
+       reg <- makeRegistry(id="my_reg", seed=123, work.dir=working_dir,file.dir="/home/aschuh/reg_folders/my_job_dir41")
 
        xs <- 1
        #batchMap(reg, run.geos.reload, xs)
@@ -513,14 +555,14 @@ for(i in startcycle:endcycle)
      #-- because the model assumes that current cycle's
      #-- data is in this directory, regardless of name.  It simply lists and sorts files.
 
-     modelfiles = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE)
+     modelfiles = list.files(paste(outdir,"/ascends/",sep=""),full.names=TRUE)
 
      #-- We want to keep "FINALRUN" files as well as prior CO2 guesses for each cyle
-     first_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001")
+     first_files  = list.files(paste(outdir,"/ascends/",sep=""),full.names=TRUE,pattern="ens.0001")
 
-     noremove_files  = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.nc.FINALRUN")
+     noremove_files  = list.files(paste(outdir,"/ascends/",sep=""),full.names=TRUE,pattern="ens.0001.FINALRUN")
 
-     prior_files = list.files(paste(outdir,"/gosat/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR")
+     prior_files = list.files(paste(outdir,"/ascends/",sep=""),full.names=TRUE,pattern="ens.0001.PRIOR")
 
      move_files = first_files[ (!first_files %in% noremove_files) & (!first_files %in% prior_files)]
 
@@ -528,8 +570,8 @@ for(i in startcycle:endcycle)
       {
                  for(k in 1:length(move_files))
              {
-                  #newfilenm = paste(move_files[k],".PRIOR",sep="")
-                  newfilenm = gsub("\\.nc",".PRIOR.nc",move_files[k])
+                  #newfilenm = paste(move_files[k],".PRIOR.nc",sep="")
+                  newfilenm = gsub("ens.0001","ens.0001.PRIOR",move_files[k])
                   file.copy(move_files[k],newfilenm)
                   file.remove(move_files[k])
               }
@@ -558,7 +600,7 @@ for(i in startcycle:endcycle)
       {
                  for(k in 1:length(move_files))
              {
-                  newfilenm = gsub("//.nc",".PRIOR.nc",move_files[k])
+                  newfilenm = gsub(".nc",".PRIOR.nc",move_files[k])
                   file.copy(move_files[k],newfilenm)
                   file.remove(move_files[k])
               }
