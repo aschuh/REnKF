@@ -30,7 +30,7 @@ inflation.factor = 1.05
 startdate = as.POSIXct(strptime('2000-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'),tz="GMT")
 #startdate$isdst = 0
 estimate_land_ocean_bias = FALSE
-pods_numb = 8
+pods_numb = 28
 
 #-- Command line args
 args = commandArgs(TRUE)
@@ -130,8 +130,8 @@ for(i in startcycle:endcycle)
         
         print(paste("Working on cycle",i))
 
-        print(paste("running stuff like: ./geos ",1," ",cycles[i]," 1 ",
-                               rdate_arg," ",cycle_length," 0",sep=""))
+        print(paste("running stuff like: ./geos ",1," ",cycles[i],
+                               rdate_arg," ",lag_window_length," ",cycle_length," 0",sep=""))
 
 
        ###########################################
@@ -141,7 +141,7 @@ for(i in startcycle:endcycle)
        if(que_soft=="nasa"){
 
          #working_dir = "/discover/nobackup/aschuh/run"
-         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir41"
+         reg.folder = "/discover/nobackup/aschuh/reg_folders/my_job_dir40"
 
          if(file.exists(reg.folder)){
           system(paste("rm -rf ",reg.folder,sep=""))
@@ -164,7 +164,7 @@ for(i in startcycle:endcycle)
          close(con)
 
          #system(paste(" /usr/local/other/PoDS/PoDS/pods.py -x /discover/nobackup/aschuh/reg_folders/my_job_dir41/exec.script -n ",pods_numb))
-         system(paste(" /discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir41/exec.script ",pods_numb))
+         system(paste(" /discover/nobackup/aschuh/pods.sh /discover/nobackup/aschuh/reg_folders/my_job_dir40/exec.script ",pods_numb))
 
          #stop("forced stop")
        }
@@ -687,6 +687,7 @@ cat(sprintf("%s Wrote %s.\n",self,obs.out.nc))
 
 
 
+        #stop("forced stop")
 
 	#-- Single rerun of mean to get restart CO2 for next cycle
 	print("launching mean beta rerun to generate new CO2 field ....")
@@ -717,7 +718,7 @@ cat(sprintf("%s Wrote %s.\n",self,obs.out.nc))
          for(k in 1:1)
           {
            writeLines(paste("./geos ",k," ",cycles[i],
-                               " ",rdate_arg2," ",cycle_length," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
+                               " ",rdate_arg," ",cycle_length," ",cycle_length," 1 > ",reg.folder,"/outfile.",k,sep=""),con=con)
           }
 
          close(con)
@@ -731,6 +732,7 @@ cat(sprintf("%s Wrote %s.\n",self,obs.out.nc))
        #-- End  NASA (pods.sh), default NASA
        ###########################################
 
+     #stop("forced stop")
 
      ##############################################
      #--  End  SGE (sun grid engine)
